@@ -1,5 +1,7 @@
 # ShadowMap
 
+![Status: Prototype](https://img.shields.io/badge/Status-Prototype-blue)
+
 **Plateforme Avancée de Knowledge Graph OSINT**
 
 *Une implémentation haute performance d'un pipeline OSINT orienté événements, explorant l'extraction hybride NLP/LLM et la persistance polyglotte.*
@@ -58,6 +60,30 @@ celery -A src.ingestion.tasks worker --loglevel=info
 ## Aperçu de l'Architecture
 
 Le système suit une architecture événementielle :
+
+```mermaid
+graph TD
+    subgraph Ingestion
+        Scraper[Scraper Furtif] --> Chunker[Découpage Sémantique]
+    end
+
+    subgraph Pipeline
+        Chunker --> Extractor[Extracteur Hybride]
+        Extractor -->|NLP + LLM| Resolver[Résolution d'Entités]
+    end
+
+    subgraph Storage
+        Resolver --> Neo4j[(Neo4j - Graphe)]
+        Resolver --> Qdrant[(Qdrant - Vecteurs)]
+        Resolver --> Postgres[(Postgres - Audit)]
+    end
+
+    subgraph API
+        User[Utilisateur] --> API[FastAPI]
+        API --> Neo4j
+        API --> Qdrant
+    end
+```
 
 1.  **Ingestion** : `src/ingestion/` - Scraping furtif & découpage sémantique.
 2.  **Pipeline** : `src/pipeline/` - Extraction hybride (SpaCy + LLM) & Résolution d'Entités.
