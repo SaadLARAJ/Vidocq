@@ -79,9 +79,9 @@ graph TD
     end
 
     subgraph API
-        User[Utilisateur] --> API[FastAPI]
-        API --> Neo4j
-        API --> Qdrant
+        User[Utilisateur] --> APIService[FastAPI]
+        APIService --> Neo4j
+        APIService --> Qdrant
     end
 ```
 
