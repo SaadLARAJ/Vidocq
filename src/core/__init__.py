@@ -1,0 +1,3 @@
+"""
+ShadowMap Enterprise Core Module
+"""

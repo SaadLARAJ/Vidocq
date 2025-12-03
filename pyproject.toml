@@ -1,0 +1,59 @@
+[tool.poetry]
+name = "shadowmap-enterprise"
+version = "4.0.0"
+description = "OSINT Knowledge Graph Platform - Military Grade"
+authors = ["ShadowMap Team"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
+structlog = "^24.1.0"
+neo4j = "^5.15.0"
+psycopg2-binary = "^2.9.9"
+redis = "^5.0.1"
+celery = "^5.3.4"
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+qdrant-client = "^1.7.0"
+sentence-transformers = "^2.3.1"
+openai = "^1.10.0"
+tenacity = "^8.2.3"
+fake-useragent = "^1.4.0"
+python-dotenv = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.3"
+pytest-cov = "^4.1.0"
+black = "^24.1.0"
+ruff = "^0.1.14"
+mypy = "^1.8.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
