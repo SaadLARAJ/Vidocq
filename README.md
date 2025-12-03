@@ -1,70 +1,70 @@
 # ShadowMap
 
-**Advanced OSINT Knowledge Graph Platform**
+**Plateforme Avancée de Knowledge Graph OSINT**
 
-*A high-performance, event-driven OSINT pipeline implementation exploring hybrid NLP/LLM extraction and polyglot persistence.*
+*Une implémentation haute performance d'un pipeline OSINT orienté événements, explorant l'extraction hybride NLP/LLM et la persistance polyglotte.*
 
-This project demonstrates a production-grade architecture for transforming unstructured web data into structured intelligence.
+Ce projet démontre une architecture de niveau production pour transformer des données web non structurées en renseignement structuré.
 
-## Key Features
+## Fonctionnalités Clés
 
-- **Stealth Ingestion**: Automated scraping with advanced anti-detection (User-Agent rotation, Jitter) and semantic chunking.
-- **Hybrid Intelligence**: Combines NLP (SpaCy) for speed and LLM (GPT-4) for complex relation extraction.
-- **Entity Resolution**: Vector-based deduplication using Qdrant embeddings to merge entities across documents.
-- **Knowledge Graph**: Neo4j storage for traversing complex relationships (e.g., "Person X funds Organization Y").
-- **Robust Architecture**: Event-driven design with Celery, Redis, and a Fail-Closed Dead Letter Queue (DLQ) for reliability.
-- **API Access**: Fully documented FastAPI endpoints for ingestion and semantic search.
+- **Ingestion Furtive** : Scraping automatisé avec techniques anti-détection avancées (Rotation d'User-Agent, Jitter aléatoire) et découpage sémantique (Chunking).
+- **Intelligence Hybride** : Combine le NLP classique (SpaCy) pour la rapidité et les LLM (GPT-4) pour l'extraction de relations complexes.
+- **Résolution d'Entités** : Déduplication vectorielle via Qdrant pour fusionner les entités à travers multiples documents.
+- **Graphe de Connaissances** : Stockage Neo4j pour traverser des relations complexes (ex: "Personne X finance Organisation Y").
+- **Architecture Robuste** : Conception orientée événements avec Celery, Redis, et une Dead Letter Queue (DLQ) "Fail-Closed" pour la fiabilité.
+- **Accès API** : Endpoints FastAPI documentés pour l'ingestion et la recherche sémantique.
 
-## Requirements
+## Pré-requis
 
 - Docker Engine 24+ & Docker Compose
 - Python 3.11+
-- OpenAI API Key (or compatible LLM provider)
+- Clé API OpenAI (ou fournisseur LLM compatible)
 
-## Quick Start
+## Démarrage Rapide
 
-### 1. Infrastructure Setup
-Start the persistence layer (Neo4j, Postgres, Qdrant, Redis):
+### 1. Infrastructure
+Lancer la couche de persistance (Neo4j, Postgres, Qdrant, Redis) :
 ```bash
 docker-compose up -d
 ```
-*Ensure ports 7474, 7687, 6333, 5432, and 6379 are available.*
+*Assurez-vous que les ports 7474, 7687, 6333, 5432, et 6379 sont disponibles.*
 
 ### 2. Configuration
-Copy the environment template:
+Copier le modèle d'environnement :
 ```bash
-cp ../.env.example .env
+cp .env.example .env
 ```
-Edit `.env` to configure your LLM provider and database credentials.
+Éditez `.env` pour configurer votre fournisseur LLM et les accès bases de données.
 
 ### 3. Installation
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
+## Utilisation
 
-### Start API Server
+### Lancer l'API
 ```bash
 uvicorn src.api.main:app --reload
 ```
-Swagger UI: `http://localhost:8000/docs`
+Swagger UI : `http://localhost:8000/docs`
 
-### Start Worker
+### Lancer le Worker
 ```bash
 celery -A src.ingestion.tasks worker --loglevel=info
 ```
 
-## Architecture Overview
+## Aperçu de l'Architecture
 
-The system follows an event-driven architecture:
+Le système suit une architecture événementielle :
 
-1.  **Ingestion**: `src/ingestion/` - Stealth scraping & semantic chunking.
-2.  **Pipeline**: `src/pipeline/` - Hybrid extraction (SpaCy + LLM) & Entity Resolution.
-3.  **Storage**: `src/storage/` - Polyglot persistence (Graph, Vector, Relational).
-4.  **API**: `src/api/` - REST endpoints.
+1.  **Ingestion** : `src/ingestion/` - Scraping furtif & découpage sémantique.
+2.  **Pipeline** : `src/pipeline/` - Extraction hybride (SpaCy + LLM) & Résolution d'Entités.
+3.  **Stockage** : `src/storage/` - Persistance polyglotte (Graphe, Vecteur, Relationnel).
+4.  **API** : `src/api/` - Endpoints REST.
 
-## Development
+## Développement
 
-- **LLM Integration**: The extractor is currently configured to use a simulation mode for development to prevent API usage. To enable real inference, update `src/pipeline/extractor.py`.
-- **Fail-Closed**: The system is designed to halt operations upon storage failure to ensure data consistency.
+- **Intégration LLM** : L'extracteur est configuré par défaut en mode simulation pour le développement afin d'éviter la consommation d'API. Pour activer l'inférence réelle, mettez à jour `src/pipeline/extractor.py`.
+- **Fail-Closed** : Le système est conçu pour arrêter les opérations en cas d'échec de stockage afin de garantir la cohérence des données.
