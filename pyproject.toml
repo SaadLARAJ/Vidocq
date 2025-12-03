@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "shadowmap-enterprise"
+name = "shadowmap"
 version = "4.0.0"
-description = "OSINT Knowledge Graph Platform - Military Grade"
+description = "Advanced OSINT Knowledge Graph Platform"
 authors = ["Laraj Saad"]
 readme = "README.md"
 packages = [{include = "src"}]
