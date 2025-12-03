@@ -2,7 +2,7 @@
 name = "shadowmap-enterprise"
 version = "4.0.0"
 description = "OSINT Knowledge Graph Platform - Military Grade"
-authors = ["ShadowMap Team"]
+authors = ["Laraj Saad"]
 readme = "README.md"
 packages = [{include = "src"}]
 

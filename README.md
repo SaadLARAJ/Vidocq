@@ -233,8 +233,5 @@ if score > 0.92:  # D'OÙ VIENT 0.92 ?
 
 ## Licence
 
-Propriétaire - ShadowMap Entreprise v4.0
+Propriétaire - Laraj Saad
 
-## Support
-
-Pour les problèmes ou les questions, contactez l'équipe d'ingénierie de ShadowMap.
