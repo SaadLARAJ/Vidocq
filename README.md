@@ -1,6 +1,6 @@
 # ShadowMap Entreprise v4.0
 
-**Plateforme de graphe de connaissances OSINT de qualité militaire**
+**Plateforme de graphe de connaissances OSINT**
 
 ShadowMap transforme les renseignements non structurés provenant d'actualités, de documents et de sources ouvertes en un graphe de connaissances navigable et traçable, avec une notation de confiance rigoureuse et des pistes d'audit complètes.
 
