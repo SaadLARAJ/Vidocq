@@ -6,6 +6,15 @@
 
 This project demonstrates a production-grade architecture for transforming unstructured web data into structured intelligence.
 
+## Key Features
+
+- **Stealth Ingestion**: Automated scraping with advanced anti-detection (User-Agent rotation, Jitter) and semantic chunking.
+- **Hybrid Intelligence**: Combines NLP (SpaCy) for speed and LLM (GPT-4) for complex relation extraction.
+- **Entity Resolution**: Vector-based deduplication using Qdrant embeddings to merge entities across documents.
+- **Knowledge Graph**: Neo4j storage for traversing complex relationships (e.g., "Person X funds Organization Y").
+- **Robust Architecture**: Event-driven design with Celery, Redis, and a Fail-Closed Dead Letter Queue (DLQ) for reliability.
+- **API Access**: Fully documented FastAPI endpoints for ingestion and semantic search.
+
 ## Requirements
 
 - Docker Engine 24+ & Docker Compose
