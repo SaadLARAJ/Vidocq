@@ -23,6 +23,8 @@ openai = "^1.10.0"
 tenacity = "^8.2.3"
 fake-useragent = "^1.4.0"
 python-dotenv = "^1.0.0"
+google-generativeai = "^0.3.0"
+unstructured = "^0.11.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

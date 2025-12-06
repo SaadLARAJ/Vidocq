@@ -14,7 +14,7 @@ services:
     volumes:
       - neo4j_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:6333/readyz || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:6333/readyz || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,20 +44,21 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shadowmap"]
+      test: [ "CMD-SHELL", "pg_isready -U shadowmap -d shadowmap_audit" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7.2-alpine
+    command: redis-server --requirepass shadowmap_redis_2024
     container_name: shadowmap_redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5

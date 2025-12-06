@@ -27,7 +27,7 @@ class VectorStore:
                 self.client.create_collection(
                     collection_name=self.collection_name,
                     vectors_config=models.VectorParams(
-                        size=1536, # OpenAI embedding size
+                        size=768, # Gemini text-embedding-004 size
                         distance=models.Distance.COSINE
                     )
                 )

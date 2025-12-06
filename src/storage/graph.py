@@ -24,26 +24,32 @@ class GraphStore:
 
     def merge_entities_batch(self, entities: List[EntityNode]):
         """
-        Batch upsert entities using UNWIND.
+        Batch upsert entities using UNWIND, dynamically setting labels.
         """
         if not entities:
             return
 
         query = """
         UNWIND $entities AS entity
+        // Merge on the generic :Entity label and unique ID
         MERGE (e:Entity {id: entity.id})
-        ON CREATE SET 
-            e.name = entity.canonical_name,
-            e.type = entity.entity_type,
-            e.aliases = entity.aliases,
-            e.first_seen = entity.first_seen,
-            e.vector_id = entity.vector_id
-        ON MATCH SET
-            e.aliases = apoc.coll.toSet(e.aliases + entity.aliases)
+        // Set properties on create or update
+        SET e += entity.properties
+        // Dynamically add the specific label (e.g., :ORGANIZATION, :COUNTRY)
+        WITH e, entity.entity_type AS label
+        CALL apoc.create.addLabels(e, [label]) YIELD node
+        RETURN count(node)
         """
         
-        # Convert Pydantic models to dicts
-        entity_dicts = [e.model_dump(mode='json') for e in entities]
+        # Convert Pydantic models to dicts, preparing properties for SET
+        entity_dicts = []
+        for e in entities:
+            props = e.model_dump(mode='json', exclude={'id'})
+            entity_dicts.append({
+                'id': e.id,
+                'entity_type': e.entity_type,
+                'properties': props
+            })
         
         try:
             with self.driver.session() as session:
@@ -55,7 +61,7 @@ class GraphStore:
 
     def merge_claims_batch(self, claims: List[Claim]):
         """
-        Batch upsert claims (relationships) using UNWIND.
+        Batch upsert claims (relationships) using UNWIND and dynamic relationship types.
         """
         if not claims:
             return
@@ -64,16 +70,22 @@ class GraphStore:
         UNWIND $claims AS claim
         MATCH (s:Entity {id: claim.subject_id})
         MATCH (o:Entity {id: claim.object_id})
-        MERGE (s)-[r:RELATION {id: claim.id}]->(o)
-        ON CREATE SET
-            r.type = claim.relation_type,
-            r.confidence = claim.confidence_score,
-            r.evidence = claim.evidence_snippet,
-            r.source_id = claim.source_id,
-            r.extracted_at = claim.extracted_at
+        // Use apoc.merge.relationship to create a relationship with a dynamic type
+        CALL apoc.merge.relationship(s, claim.relation_type, {}, claim.properties, o) YIELD rel
+        RETURN count(rel) AS total
         """
         
-        claim_dicts = [c.model_dump(mode='json') for c in claims]
+        # Convert Pydantic models to dicts for APOC
+        claim_dicts = []
+        for c in claims:
+            # Prepare properties, excluding IDs that are used for matching
+            props = c.model_dump(mode='json', exclude={'subject_id', 'object_id', 'relation_type'})
+            claim_dicts.append({
+                'subject_id': c.subject_id,
+                'object_id': c.object_id,
+                'relation_type': c.relation_type.upper(), # Ensure type is uppercase
+                'properties': props
+            })
         
         try:
             with self.driver.session() as session:

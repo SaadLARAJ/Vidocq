@@ -1,11 +1,16 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Dict
+from typing import Dict, Optional
 
 class Settings(BaseSettings):
+    # Environment
+    ENVIRONMENT: str = "production"
+    LOG_LEVEL: str = "INFO"
+
     # Infrastructure
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
+    NEO4J_DATABASE: str = "neo4j"
     
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_COLLECTION: str = "shadowmap_entities"
@@ -13,6 +18,22 @@ class Settings(BaseSettings):
     POSTGRES_DSN: str = "postgresql://shadowmap:shadowmap@localhost:5432/shadowmap_audit"
     
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Deep Learning / LLM
+    LLM_PROVIDER: str = "openai" # Default to openai, overriden by env
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o"
+    
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-1.5-pro-001"
+
+    # Celery
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+
+    # API
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8000
 
     # Scoring Weights
     SOURCE_WEIGHTS: Dict[str, float] = {
@@ -29,6 +50,8 @@ class Settings(BaseSettings):
     METHOD_WEIGHTS: Dict[str, float] = {
         "gpt-4o": 0.90,
         "gpt-4-turbo": 0.85,
+        "gemini-1.5-flash": 0.85,
+        "gemini-1.5-pro": 0.92,
         "spacy_ner": 0.70,
         "regex": 0.60,
         "manual_verification": 1.0
@@ -50,6 +73,6 @@ class Settings(BaseSettings):
     JITTER_MIN: float = 1.5
     JITTER_MAX: float = 4.0
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

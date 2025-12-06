@@ -15,7 +15,8 @@ logger = get_logger(__name__)
 celery_app = Celery(
     "shadowmap",
     broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL
+    backend=settings.REDIS_URL,
+    include=['src.pipeline.tasks']
 )
 
 celery_app.conf.update(
@@ -81,8 +82,9 @@ def ingest_url(self, url: str, source_domain: str):
     
     logger.info("ingestion_complete", url=url, chunks_count=len(chunks))
     
-    # TODO: Trigger extraction task for each chunk
-    # for chunk in chunks:
-    #     extract_claims.delay(chunk, doc.id)
+    # Trigger extraction task for each chunk
+    from src.pipeline.tasks import extract_claims
+    for chunk in chunks:
+        extract_claims.delay(text=chunk, source_domain=source_domain, source_id=str(doc.id))
     
     return {"doc_id": str(doc.id), "chunks": len(chunks)}

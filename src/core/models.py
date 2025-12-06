@@ -3,6 +3,9 @@ from typing import Optional, List, Literal
 from datetime import datetime
 from uuid import UUID, uuid4
 
+# Import the single source of truth for ontology
+from src.core.ontology import ALLOWED_ENTITY_TYPES, ALLOWED_RELATIONS
+
 class SourceDocument(BaseModel):
     """Document source ingéré (Article, PDF, Tweet)."""
     id: UUID = Field(default_factory=uuid4)
@@ -17,7 +20,8 @@ class EntityNode(BaseModel):
     """Entité unique dans le graphe."""
     id: str = Field(description="UUID déterministe basé sur canonical_name + type")
     canonical_name: str
-    entity_type: Literal["PERSON", "ORGANIZATION", "LOCATION", "EVENT", "CRYPTO_WALLET", "DOCUMENT"]
+    # Use the imported list to define allowed types
+    entity_type: Literal[*ALLOWED_ENTITY_TYPES]
     aliases: List[str] = []
     first_seen: datetime = Field(default_factory=datetime.utcnow)
     vector_id: Optional[str] = Field(default=None, description="ID dans Qdrant")
@@ -31,7 +35,8 @@ class Claim(BaseModel):
     source_id: UUID
     source_url: str
     subject_id: str
-    relation_type: str  # ALLOWED_RELATIONS uniquement
+    # Use the imported list to define allowed relations
+    relation_type: Literal[*ALLOWED_RELATIONS]
     object_id: str
     confidence_score: float = Field(description="Calculé via ConfidenceCalculator")
     evidence_snippet: str = Field(description="Extrait de texte prouvant le lien")
