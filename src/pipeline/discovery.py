@@ -121,7 +121,15 @@ class DiscoveryEngine:
             ingest_url.delay(url, f"discovery_hunt_{entity_name}", depth=current_depth + 1)
 
 if __name__ == "__main__":
-    # Manual Test
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Usage: python src/pipeline/discovery.py <Entity Name>")
+        print("Example: python src/pipeline/discovery.py 'Airbus'")
+        sys.exit(1)
+
+    entity = sys.argv[1]
+    print(f"🚀 Launching Discovery Hunt for: {entity}")
+    
     engine = DiscoveryEngine()
-    # Test with a Russian entity to verify Polyglot behavior
-    engine.discover_and_loop("VSMPO-AVISMA", 0)
+    engine.discover_and_loop(entity, 0)
