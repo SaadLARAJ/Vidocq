@@ -12,6 +12,7 @@ app = FastAPI(
 )
 
 # CORS
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +22,7 @@ app.add_middleware(
 )
 
 # Include Routes
-app.include_router(router, prefix="/api/v1")
+app.include_router(router)
 
 @app.on_event("startup")
 async def startup_event():
