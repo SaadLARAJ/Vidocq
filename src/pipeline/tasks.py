@@ -15,11 +15,11 @@ def generate_uuid_from_string(val: str) -> str:
     return str(uuid.UUID(hex=hex_string))
 
 @shared_task(name="src.pipeline.tasks.extract_claims", bind=True, max_retries=3)
-def extract_claims(self, text: str, source_domain: str, source_id: str):
+def extract_claims(self, text: str, source_domain: str, source_id: str, depth: int = 0):
     """
     Task to extract information from text using Gemini and save to storage.
     """
-    logger.info("starting_extraction", source_id=source_id, text_len=len(text))
+    logger.info("starting_extraction", source_id=source_id, text_len=len(text), depth=depth)
     
     try:
         # 1. Extract
@@ -73,6 +73,18 @@ def extract_claims(self, text: str, source_domain: str, source_id: str):
             except Exception as e:
                  logger.error("vector_upsert_failed_dimension_mismatch_likely", error=str(e))
         
+        # 4. Recursive Discovery Trigger
+        # Only trigger if we haven't reached max depth
+        from src.pipeline.discovery import DiscoveryEngine
+        discovery = DiscoveryEngine()
+        
+        for entity in entities:
+            if entity.entity_type == "ORGANIZATION":
+                logger.info("triggering_discovery", entity=entity.canonical_name, depth=depth)
+                # We trigger this synchronously here, but in production this should be a separate task
+                # to avoid blocking the worker. For the prototype, it's fine as it spawns async ingest tasks.
+                discovery.discover_and_loop(entity.canonical_name, current_depth=depth)
+
         return {"features_extracted": len(entities) + len(claims)}
 
     except Exception as e:
