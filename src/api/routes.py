@@ -9,11 +9,15 @@ from src.pipeline.resolver import EntityResolver
 from src.ingestion.tasks import ingest_url
 from src.core.logging import get_logger
 import random
+import hashlib
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 # --- GEO MAPPING CONFIGURATION ---
+# 1. Static Cache (Fastest)
 GEO_MAPPING = {
     "CHINA": {"lat": 35.8617, "lng": 104.1954},
     "INDIA": {"lat": 20.5937, "lng": 78.9629},
@@ -29,10 +33,60 @@ GEO_MAPPING = {
     "CANADA": {"lat": 56.1304, "lng": -106.3468},
     "MEXICO": {"lat": 23.6345, "lng": -102.5528},
     "RUSSIA": {"lat": 61.5240, "lng": 105.3188},
-    "AUSTRALIA": {"lat": -25.2744, "lng": 133.7751}
+    "AUSTRALIA": {"lat": -25.2744, "lng": 133.7751},
+    "HYDERABAD": {"lat": 17.3850, "lng": 78.4867},
+    "PARIS": {"lat": 48.8566, "lng": 2.3522},
+    "SHENZHEN": {"lat": 22.5431, "lng": 114.0579},
+    "BANGALORE": {"lat": 12.9716, "lng": 77.5946},
+    "TOKYO": {"lat": 35.6762, "lng": 139.6503},
+    "BEIJING": {"lat": 39.9042, "lng": 116.4074},
+    "MOSCOW": {"lat": 55.7558, "lng": 37.6173},
+    "LONDON": {"lat": 51.5074, "lng": -0.1278},
+    "NEW YORK": {"lat": 40.7128, "lng": -74.0060},
+    "CALIFORNIA": {"lat": 36.7783, "lng": -119.4179},
+    "SAFRAN": {"lat": 48.8566, "lng": 2.3522}, # Default HQ
 }
 
 DEFAULT_COORDS = {"lat": 37.0902, "lng": -95.7129} # USA
+
+# Initialize Geocoder
+geolocator = Nominatim(user_agent="shadowmap_agent")
+
+def get_coordinates(location_name: str) -> Dict[str, float]:
+    """
+    Resolve coordinates with 3-tier strategy:
+    1. Static Cache (Instant)
+    2. Geopy/OSM (Online)
+    3. Deterministic Fallback (Offline/Fail-safe)
+    """
+    clean_name = location_name.upper().strip()
+    
+    # Tier 1: Static Cache
+    if clean_name in GEO_MAPPING:
+        return GEO_MAPPING[clean_name]
+    
+    # Tier 2: Online Geocoding
+    try:
+        location = geolocator.geocode(clean_name, timeout=2)
+        if location:
+            coords = {"lat": location.latitude, "lng": location.longitude}
+            # Update cache for this session
+            GEO_MAPPING[clean_name] = coords
+            return coords
+    except Exception as e:
+        logger.warning("geocoding_failed", location=clean_name, error=str(e))
+
+    # Tier 3: Deterministic Fallback (Hash-based)
+    # Ensures the same entity always appears at the same "random" spot
+    # Use a hash of the name to generate a consistent lat/lng
+    hash_val = int(hashlib.md5(clean_name.encode()).hexdigest(), 16)
+    
+    # Generate lat between -60 and 70 (avoid poles)
+    lat = (hash_val % 13000) / 100.0 - 60.0
+    # Generate lng between -180 and 180
+    lng = ((hash_val // 13000) % 36000) / 100.0 - 180.0
+    
+    return {"lat": lat, "lng": lng}
 
 class IngestRequest(BaseModel):
     url: HttpUrl
@@ -80,7 +134,7 @@ async def get_geo_graph(graph_store: GraphStore = Depends(get_graph_store)):
     """
     query = """
     MATCH (buyer:ORGANIZATION)-[r1]->(supplier:ORGANIZATION)
-    MATCH (supplier)-[r2:LOCATED_IN|OPERATES_IN]->(country:COUNTRY)
+    MATCH (supplier)-[r2:LOCATED_IN|OPERATES_IN|MANUFACTURES_IN]->(country:Entity)
     RETURN buyer.name as buyer, supplier.name as supplier, country.name as location, type(r1) as relation
     LIMIT 100
     """
@@ -93,24 +147,26 @@ async def get_geo_graph(graph_store: GraphStore = Depends(get_graph_store)):
             for record in result:
                 buyer = record["buyer"]
                 supplier = record["supplier"]
-                location = record["location"].upper() if record["location"] else "UNKNOWN"
+                location = record["location"] if record["location"] else "UNKNOWN"
                 relation = record["relation"]
                 
                 # Resolve Coordinates
-                # Supplier Location (from query)
-                supplier_coords = GEO_MAPPING.get(location, DEFAULT_COORDS)
+                supplier_coords = get_coordinates(location)
                 
-                # Buyer Location (Default to USA as per requirements since not in query)
-                buyer_coords = DEFAULT_COORDS
+                # Try to find buyer location (default to Paris/Safran if unknown)
+                # Ideally we would query the buyer's location too, but for now:
+                if "SAFRAN" in buyer.upper():
+                    buyer_coords = GEO_MAPPING["SAFRAN"]
+                else:
+                    buyer_coords = get_coordinates(buyer) # Try to geocode the buyer name itself
                 
                 # Determine Risk
-                # Simple logic: DEPENDS_ON = HIGH, others = MEDIUM/LOW
-                risk = "HIGH" if "DEPENDS" in relation else "MEDIUM"
+                risk = "HIGH" if "DEPENDS" in relation or "OPPOSES" in relation else "MEDIUM"
                 
                 flows.append({
                     "buyer": buyer,
                     "supplier": supplier,
-                    "from": supplier_coords, # Supplier -> Buyer flow
+                    "from": supplier_coords,
                     "to": buyer_coords,
                     "risk": risk
                 })
