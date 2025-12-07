@@ -88,5 +88,8 @@ def extract_claims(self, text: str, source_domain: str, source_id: str, depth: i
         return {"features_extracted": len(entities) + len(claims)}
 
     except Exception as e:
-        logger.error("extraction_failed", error=str(e))
-        raise self.retry(exc=e)
+        # FAIL FAST STRATEGY
+        # If extraction fails (JSON error, API quota, etc.), we log it and STOP.
+        # We do NOT retry, so the worker can immediately pick up the next URL.
+        logger.error("extraction_failed_skipping", error=str(e), source_id=source_id)
+        return {"error": str(e), "status": "failed_fast"}

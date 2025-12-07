@@ -43,6 +43,12 @@ class DiscoveryEngine:
             4. If the entity is French, write queries in French.
             5. Otherwise, use English.
             6. Target "Conflict Minerals Reports", "Supplier Lists", and "Tenders".
+
+            CRITICAL SEARCH RULES:
+            - DO NOT use "site:..." operator (unless excluding wikipedia).
+            - DO NOT use "filetype:pdf" systematically.
+            - Generate "Journalistic" queries to find articles, blogs, and news.
+            - Example: Instead of '{entity_name} site:example.com supplier list', generate '{entity_name} major suppliers list' or '{entity_name} supply chain scandal'.
             
             OUTPUT FORMAT:
             Return ONLY a raw JSON list of strings. No markdown, no code blocks.
@@ -53,14 +59,14 @@ class DiscoveryEngine:
             text = response.text.strip()
             
             # Clean up potential markdown formatting
-            if text.startswith("```json"):
-                text = text[7:]
-            if text.startswith("```"):
-                text = text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-                
-            queries = json.loads(text)
+            import re
+            match = re.search(r'\[.*\]', text, re.DOTALL)
+            if match:
+                json_str = match.group(0)
+                queries = json.loads(json_str)
+            else:
+                # Try direct load if regex fails (e.g. single line)
+                queries = json.loads(text)
             
             # Log the detection (inferring from the first query characters or just generic log)
             logger.info("generated_multilingual_queries", entity=entity_name, queries=queries)
@@ -68,11 +74,11 @@ class DiscoveryEngine:
 
         except Exception as e:
             logger.error("llm_query_generation_failed", error=str(e))
-            # Fallback to English
+            # Fallback to English - Broader queries
             return [
-                f"{entity_name} supplier list filetype:pdf",
-                f"{entity_name} conflict minerals report",
-                f"{entity_name} tier 2 suppliers"
+                f"{entity_name} major suppliers list",
+                f"{entity_name} supply chain partners",
+                f"{entity_name} contracts and tenders"
             ]
 
     def discover_and_loop(self, entity_name: str, current_depth: int = 0):
