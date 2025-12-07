@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHADOWMAP // WAR ROOM</title>
+    
+    <!-- LEAFLET CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- GOOGLE FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-bg: #050505;
+            --color-safe: #00f3ff;
+            --color-safe-dim: rgba(0, 243, 255, 0.2);
+            --color-risk: #ff003c;
+            --color-risk-dim: rgba(255, 0, 60, 0.2);
+            --color-text: #e0e0e0;
+            --glass-bg: rgba(10, 15, 20, 0.85);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --font-mono: 'Share Tech Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-family: var(--font-mono);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* MAP CONTAINER */
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+            background: #050505; /* Fallback */
+        }
+
+        /* UI OVERLAY LAYER */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            pointer-events: none; /* Let clicks pass through to map */
+        }
+
+        /* HEADER */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border: var(--glass-border);
+            border-left: 4px solid var(--color-safe);
+            pointer-events: auto;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--color-safe);
+            text-shadow: 0 0 10px var(--color-safe);
+            margin-bottom: 5px;
+        }
+
+        .header .status {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-safe);
+            margin-right: 8px;
+            box-shadow: 0 0 8px var(--color-safe);
+            animation: blink 2s infinite;
+        }
+
+        .status-indicator.offline {
+            background: var(--color-risk);
+            box-shadow: 0 0 8px var(--color-risk);
+        }
+
+        /* LOG PANEL */
+        .log-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 400px;
+            height: 200px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(5px);
+            border: var(--glass-border);
+            border-top: 2px solid var(--color-safe);
+            padding: 10px;
+            font-size: 12px;
+            overflow: hidden;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-title {
+            color: var(--color-safe);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse; /* New logs at bottom, but scrolled to bottom */
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+        
+        .log-entry.error { color: var(--color-risk); }
+        .log-entry.success { color: var(--color-safe); }
+        .log-entry.info { color: #aaa; }
+        .log-entry .timestamp { color: #555; margin-right: 8px; }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: absolute;
+            top: 0;
+            right: -400px; /* Hidden by default */
+            width: 350px;
+            height: 100%;
+            background: rgba(5, 8, 10, 0.95);
+            backdrop-filter: blur(15px);
+            border-left: 1px solid var(--color-safe);
+            padding: 30px;
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: auto;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
+        }
+
+        .sidebar.active {
+            right: 0;
+        }
+
+        .sidebar h2 {
+            color: var(--color-risk);
+            text-shadow: 0 0 10px var(--color-risk);
+            border-bottom: 1px solid var(--color-risk);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .data-row {
+            margin-bottom: 15px;
+        }
+
+        .data-label {
+            color: #666;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .data-value {
+            color: #fff;
+            font-size: 16px;
+            margin-top: 2px;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: var(--color-risk-dim);
+            color: var(--color-risk);
+            border: 1px solid var(--color-risk);
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .close-btn:hover { color: #fff; }
+
+        /* ANIMATIONS */
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.33); opacity: 0.8; }
+            80%, 100% { opacity: 0; transform: scale(2.5); }
+        }
+
+        /* CUSTOM MARKER STYLES */
+        .marker-icon {
+            background: transparent;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .dot.safe { background: var(--color-safe); color: var(--color-safe); }
+        .dot.risk { background: var(--color-risk); color: var(--color-risk); }
+
+        .ring {
+            border: 1px solid currentColor;
+            border-radius: 50%;
+            height: 30px;
+            width: 30px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        
+        .dot.risk .ring { color: var(--color-risk); }
+        .dot.safe .ring { color: var(--color-safe); animation: none; border: 1px solid var(--color-safe-dim); width: 16px; height: 16px; opacity: 1; }
+
+        /* SVG OVERLAY FOR CURVES */
+        .leaflet-overlay-pane svg path {
+            stroke-linecap: round;
+        }
+        
+        .flow-path {
+            stroke-dasharray: 10;
+            animation: dash 30s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="ui-layer">
+        <div class="header">
+            <h1>ShadowMap <span style="font-size:0.6em; opacity:0.7;">// WAR ROOM</span></h1>
+            <div class="status">
+                <span id="system-status-indicator" class="status-indicator"></span>
+                <span id="system-status-text">INITIALIZING...</span>
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <div class="log-title">> SYSTEM LOGS</div>
+            <div class="log-content" id="log-container">
+                <!-- Logs will appear here -->
+            </div>
+        </div>
+
+        <div class="sidebar" id="sidebar">
+            <button class="close-btn" onclick="closeSidebar()">×</button>
+            <h2 id="sb-title">SUPPLY CHAIN ALERT</h2>
+            
+            <div class="data-row">
+                <div class="data-label">BUYER</div>
+                <div class="data-value" id="sb-buyer">---</div>
+            </div>
+            
+            <div class="data-row">
+                <div class="data-label">SUPPLIER</div>
+                <div class="data-value" id="sb-supplier">---</div>
+            </div>
+
+            <div class="data-row">
+                <div class="data-label">ORIGIN</div>
+                <div class="data-value" id="sb-origin">---</div>
+            </div>
+
+            <div class="data-row">
+                <div class="data-label">DESTINATION</div>
+                <div class="data-value" id="sb-dest">---</div>
+            </div>
+
+            <div class="data-row">
+                <div class="data-label">RISK LEVEL</div>
+                <div class="risk-badge" id="sb-risk">HIGH</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEAFLET JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- LEAFLET CURVE PLUGIN -->
+    <script src="https://unpkg.com/leaflet-curve@1.0.0/leaflet.curve.js"></script>
+
+    <script>
+        // --- CONFIGURATION ---
+        const API_URL = 'http://localhost:8000/graph/geo';
+        const FALLBACK_DATA = {
+            "count": 2,
+            "flows": [
+                { 
+                    "buyer": "Apple Inc.", 
+                    "supplier": "Foxconn City", 
+                    "from": {"lat": 34.7466, "lng": 113.6253}, // Zhengzhou, China
+                    "to": {"lat": 37.3349, "lng": -122.0090}, // Cupertino, USA
+                    "risk": "HIGH" 
+                },
+                { 
+                    "buyer": "Apple Inc.", 
+                    "supplier": "Tata Electronics", 
+                    "from": {"lat": 12.5278, "lng": 78.2117}, // Hosur, India
+                    "to": {"lat": 37.3349, "lng": -122.0090}, // Cupertino, USA
+                    "risk": "MEDIUM" 
+                }
+            ]
+        };
+
+        // --- STATE ---
+        let map;
+        let flowLayers = [];
+
+        // --- LOGGING SYSTEM ---
+        function log(msg, type = 'info') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            const now = new Date();
+            const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            entry.innerHTML = `<span class="timestamp">[${time}]</span> ${msg}`;
+            container.prepend(entry); // Add to top
+            
+            // Limit logs
+            if (container.children.length > 50) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // --- MAP INITIALIZATION ---
+        function initMap() {
+            log('Initializing Geospatial Core...', 'info');
+            
+            // Center roughly on Pacific to show US/Asia
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([30, 180], 3);
+
+            // CartoDB DarkMatter Tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+
+            log('Map Tiles Loaded: CartoDB.DarkMatter', 'success');
+        }
+
+        // --- VISUALIZATION LOGIC ---
+        function createCustomIcon(type) {
+            return L.divIcon({
+                className: 'marker-icon',
+                html: `<div class="dot ${type}"><div class="ring"></div></div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+        }
+
+        function renderFlows(data) {
+            // Clear existing
+            flowLayers.forEach(l => map.removeLayer(l));
+            flowLayers = [];
+
+            log(`Rendering ${data.flows.length} supply chain flows...`, 'info');
+
+            data.flows.forEach(flow => {
+                const from = [flow.from.lat, flow.from.lng];
+                const to = [flow.to.lat, flow.to.lng];
+                const isRisk = flow.risk === 'HIGH';
+                const color = isRisk ? '#ff003c' : '#00f3ff';
+
+                // 1. Markers
+                const supplierMarker = L.marker(from, { icon: createCustomIcon(isRisk ? 'risk' : 'safe') })
+                    .addTo(map)
+                    .bindPopup(`SUPPLIER: ${flow.supplier}`);
+                
+                const buyerMarker = L.marker(to, { icon: createCustomIcon('safe') })
+                    .addTo(map)
+                    .bindPopup(`BUYER: ${flow.buyer}`);
+
+                // Click event for Sidebar
+                supplierMarker.on('click', () => openSidebar(flow));
+                
+                flowLayers.push(supplierMarker, buyerMarker);
+
+                // 2. Curved Line (Bezier)
+                // Control point for curve: midpoint + offset
+                // Simple quadratic bezier logic handled by leaflet.curve
+                // M start, Q control end
+                
+                const latlngs = [];
+                const lat1 = from[0], lng1 = from[1];
+                const lat2 = to[0], lng2 = to[1];
+                
+                // Calculate a control point to make it curve
+                // Simple approach: midpoint in lat/lng, then offset lat towards pole (arc effect)
+                const offsetX = (lng2 - lng1) / 2;
+                const offsetY = (lat2 - lat1) / 2;
+                
+                // Curve "up" (north) for northern hemisphere routes usually looks good
+                const r = Math.sqrt(offsetX*offsetX + offsetY*offsetY);
+                const midLat = (lat1 + lat2) / 2 + (r * 0.5); 
+                const midLng = (lng1 + lng2) / 2;
+
+                // Handle dateline crossing if needed (simple version assumes standard view)
+                
+                const pathData = [
+                    'M', from,
+                    'Q', [midLat, midLng], to
+                ];
+
+                const curve = L.curve(pathData, {
+                    color: color,
+                    weight: 2,
+                    opacity: 0.8,
+                    className: 'flow-path', // For CSS animation
+                    dashArray: '10, 10'
+                }).addTo(map);
+
+                flowLayers.push(curve);
+            });
+        }
+
+        // --- SIDEBAR LOGIC ---
+        function openSidebar(flow) {
+            document.getElementById('sb-title').innerText = flow.risk === 'HIGH' ? 'CRITICAL ALERT' : 'SUPPLY CHAIN INFO';
+            document.getElementById('sb-title').style.color = flow.risk === 'HIGH' ? 'var(--color-risk)' : 'var(--color-safe)';
+            
+            document.getElementById('sb-buyer').innerText = flow.buyer;
+            document.getElementById('sb-supplier').innerText = flow.supplier;
+            document.getElementById('sb-origin').innerText = `${flow.from.lat.toFixed(2)}, ${flow.from.lng.toFixed(2)}`;
+            document.getElementById('sb-dest').innerText = `${flow.to.lat.toFixed(2)}, ${flow.to.lng.toFixed(2)}`;
+            
+            const riskBadge = document.getElementById('sb-risk');
+            riskBadge.innerText = flow.risk;
+            riskBadge.style.borderColor = flow.risk === 'HIGH' ? 'var(--color-risk)' : 'var(--color-safe)';
+            riskBadge.style.color = flow.risk === 'HIGH' ? 'var(--color-risk)' : 'var(--color-safe)';
+            riskBadge.style.background = flow.risk === 'HIGH' ? 'var(--color-risk-dim)' : 'var(--color-safe-dim)';
+
+            document.getElementById('sidebar').classList.add('active');
+            log(`Accessing details for ${flow.supplier} -> ${flow.buyer}`, 'info');
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('active');
+        }
+
+        // --- DATA FETCHING ---
+        async function loadData() {
+            const statusText = document.getElementById('system-status-text');
+            const statusInd = document.getElementById('system-status-indicator');
+
+            log('Attempting connection to ShadowMap Grid...', 'info');
+            
+            try {
+                // Timeout after 3 seconds
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                const response = await fetch(API_URL, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                log('Connection Established. Live Data Received.', 'success');
+                statusText.innerText = 'ONLINE';
+                statusInd.classList.remove('offline');
+                
+                renderFlows(data);
+
+            } catch (error) {
+                log(`Connection Failed: ${error.message}`, 'error');
+                log('Engaging FAILSAFE PROTOCOL. Loading local cache...', 'error');
+                
+                statusText.innerText = 'OFFLINE (LOCAL MODE)';
+                statusText.style.color = 'var(--color-risk)';
+                statusInd.classList.add('offline');
+
+                // Use Fallback
+                renderFlows(FALLBACK_DATA);
+            }
+        }
+
+        // --- MAIN ---
+        window.onload = () => {
+            initMap();
+            loadData();
+        };
+
+    </script>
+</body>
+</html>
