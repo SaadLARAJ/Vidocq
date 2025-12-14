@@ -14,7 +14,7 @@
 
 ---
 
-🎯 **Agnostique** | 🧠 **Mémoire Cumulative** | 🇫🇷 **Souveraineté Native** | 🔍 **Multi-Cas**
+ **Agnostique** |  **Mémoire Cumulative** |  **Souveraineté Native** |  **Multi-Cas**
 
 </div>
 
@@ -25,22 +25,24 @@
 1. [Le Problème](#-le-problème)
 2. [La Solution](#-la-solution--vidocq)
 3. [Architecture Technique (Agentic GraphRAG)](#-architecture-technique-agentic-graphrag)
-4. [Les 5 Killer Features](#-les-5-killer-features)
-5. [Stratégie Multi-Cas (Plateforme Universelle)](#-stratégie-multi-cas-plateforme-universelle)
-6. [Système Anti-Bruit (CIA/OTAN)](#-système-anti-bruit-ciaotan-style)
-7. [Gestion de la Confiance et Fiabilité](#-gestion-de-la-confiance-et-fiabilité)
-8. [API Endpoints](#-api-endpoints)
-9. [Discovery Engine v2.0](#-discovery-engine-v20-nouveau) ⚡ **NOUVEAU**
-10. [Risk Scoring Multi-Dimensionnel](#-risk-scoring-multi-dimensionnel-nouveau) 📊 **NOUVEAU**
-11. [Système de Cache Intelligent](#️-système-de-cache-intelligent-nouveau) 🗄️ **NOUVEAU**
-12. [Comparatif Concurrentiel](#-comparatif-concurrentiel)
-13. [Démarrage Rapide](#-démarrage-rapide)
-14. [Roadmap et Vision](#-roadmap-et-vision)
-15. [Souveraineté et Sécurité](#-souveraineté--sécurité)
+4. [Les 7 Killer Features](#-les-7-killer-features)
+5. [Cas d'Usage Critiques](#️-cas-dusage-critiques-scénarios-réels) 🕵️ **NOUVEAU**
+6. [Le Grand Graphe National](#-le-grand-graphe-national-vision) 🧠 **NOUVEAU**
+7. [Stratégie Multi-Cas (Plateforme Universelle)](#-stratégie-multi-cas-plateforme-universelle)
+8. [Système Anti-Bruit (CIA/OTAN)](#-système-anti-bruit-ciaotan-style)
+9. [Gestion de la Confiance et Fiabilité](#-gestion-de-la-confiance-et-fiabilité)
+10. [API Endpoints](#-api-endpoints)
+11. [Discovery Engine v2.0](#-discovery-engine-v20-nouveau) ⚡
+12. [Risk Scoring Multi-Dimensionnel](#-risk-scoring-multi-dimensionnel-nouveau) 📊
+13. [Système de Cache Intelligent](#️-système-de-cache-intelligent-nouveau) 🗄️
+14. [Comparatif Concurrentiel](#-comparatif-concurrentiel)
+15. [Démarrage Rapide](#-démarrage-rapide)
+16. [Roadmap et Vision](#-roadmap-et-vision)
+17. [Souveraineté et Sécurité](#-souveraineté--sécurité)
 
 ---
 
-## 🎯 Le Problème
+##  Le Problème
 
 > *"Qui sont les fournisseurs de mes fournisseurs ? Cette personne est-elle fiable ? Quels risques cachés menacent mon organisation ?"*
 
@@ -66,7 +68,7 @@ Les entreprises stratégiques (Défense, Énergie, Aéro, Finance) et les cabine
 
 ---
 
-## 💡 La Solution : Vidocq
+## La Solution : Vidocq
 
 **Vidocq n'est pas un moteur de recherche. C'est un Agent d'Investigation Autonome (Deeptech).**
 
@@ -98,7 +100,7 @@ Vous lui donnez un nom (entreprise, personne, pays). Il :
 
 </div>
 
-### L'Effet Réseau (La Magie)
+### L'Effet Réseau 
 
 ```
 JOUR 1: Investigation "Gazprom"
@@ -130,25 +132,25 @@ JOUR 60: Investigation "Safran Supply Chain"
 │                        VIDOCQ v6.0 - AGENTIC GRAPHRAG               │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  🎯 ORCHESTRATEUR (Le Cerveau Stratégique)                         │
+│   ORCHESTRATEUR (Le Cerveau Stratégique)                         │
 │  └─ S'adapte automatiquement selon la cible:                       │
 │     • Cible ENTREPRISE → Agent "Supply Chain & Capital"            │
 │     • Cible PERSONNE   → Agent "Influence & Réputation"            │
 │     • Cible ÉTAT       → Agent "Géopolitique & Ressources"         │
 │                                                                     │
-│  🧠 GRAPHE DE CONNAISSANCE (La Mémoire - Neo4j)                    │
+│   GRAPHE DE CONNAISSANCE (La Mémoire - Neo4j)                    │
 │  └─ Asset Propriétaire qui s'apprécie avec le temps:               │
 │     • Entités: Personnes, Organisations, Lieux, Événements         │
 │     • Relations: SUPPLIES, OWNS, FUNDS, OPPOSES, LOCATED_IN...     │
 │     • Métadonnées: Score confiance, source, date, géolocalisation  │
 │                                                                     │
-│  🔍 AGENT CRITIQUE (Le Filtre de Vérité)                           │
+│   AGENT CRITIQUE (Le Filtre de Vérité)                           │
 │  └─ Contre l'hallucination et le bruit:                            │
 │     • Source of Truth: Chaque lien = preuve cliquable (PDF, URL)   │
 │     • Soft-Filtering: Données douteuses en "Quarantaine"           │
 │     • Magic Switch: Révéler les signaux faibles à la demande       │
 │                                                                     │
-│  📊 EMBEDDINGS VECTORIELS (Qdrant)                                  │
+│   EMBEDDINGS VECTORIELS (Qdrant)                                  │
 │  └─ Recherche sémantique et résolution d'entités:                  │
 │     • Dimension: 768 (Gemini text-embedding-004)                   │
 │     • Distance: Cosine Similarity                                   │
@@ -161,13 +163,13 @@ JOUR 60: Investigation "Safran Supply Chain"
 
 | Couche | Technologie | Rôle | Souveraineté |
 |--------|-------------|------|--------------|
-| **API** | FastAPI | REST API haute performance | ✅ FR |
-| **LLM** | Gemini 1.5 *(→ Mistral)* | Extraction + Classification | 🔄 Migration |
-| **Graphe** | Neo4j + APOC | Relations entre entités | ✅ Self-hosted |
-| **Vecteurs** | Qdrant | Recherche sémantique | ✅ Self-hosted |
-| **Queue** | Celery + Redis | Tâches asynchrones | ✅ Self-hosted |
-| **Scraping** | DuckDuckGo + httpx | Collecte web | ✅ FR |
-| **Orchestration** | Docker Compose | Déploiement | ✅ FR |
+| **API** | FastAPI | REST API haute performance | FR |
+| **LLM** | Gemini 1.5 *(→ Mistral)* | Extraction + Classification |  Migration |
+| **Graphe** | Neo4j + APOC | Relations entre entités |  Self-hosted |
+| **Vecteurs** | Qdrant | Recherche sémantique |  Self-hosted |
+| **Queue** | Celery + Redis | Tâches asynchrones |  Self-hosted |
+| **Scraping** | DuckDuckGo + httpx | Collecte web |  FR |
+| **Orchestration** | Docker Compose | Déploiement |  FR |
 
 ### Pipeline de Traitement
 
@@ -187,9 +189,9 @@ URL/Entité → Ingestion Furtive → Parsing → Chunking Sémantique
 
 ---
 
-## 🚀 Les 5 Killer Features
+##  Les Features
 
-### 1. 👻 Ghost Detector (Analyse du Vide)
+### 1.  Ghost Detector (Analyse du Vide)
 
 **L'IA ne cherche pas ce qui est là, mais ce qui MANQUE.**
 
@@ -213,7 +215,7 @@ GET /brain/ghost-scan/John%20Smith%20CEO
 
 ---
 
-### 2. 🌍 Wargaming (Simulation de Catastrophe)
+### 2.  Wargaming (Simulation de Catastrophe)
 
 **"Que se passe-t-il si X tombe ?"**
 
@@ -238,7 +240,7 @@ GET /brain/wargame/Taiwan?scenario=EMBARGO
 
 ---
 
-### 3. ⚔️ Contradiction Detector (Guerre Narrative)
+### 3.  Contradiction Detector (Guerre Narrative)
 
 **Quand Reuters dit BLANC et RT dit NOIR.**
 
@@ -260,7 +262,7 @@ GET /brain/contradictions/entity/Wagner
 
 ---
 
-### 4. 🇫🇷 Souveraineté Native
+### 4. Souveraineté Native
 
 **Architecture 100% agnostique au fournisseur LLM.**
 
@@ -275,7 +277,7 @@ GET /brain/contradictions/entity/Wagner
 
 ---
 
-### 5. 📚 Source of Truth (Traçabilité Cliquable)
+### 5. Source of Truth (Traçabilité Cliquable)
 
 **Chaque affirmation = une preuve vérifiable.**
 
@@ -293,7 +295,405 @@ Vidocq affiche:
 
 ---
 
-## 🎯 Stratégie Multi-Cas (Plateforme Universelle)
+### 6. Alertes Temps Réel Cross-Clients
+
+**Vidocq surveille les événements et alerte proactivement.**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SYSTÈME D'ALERTES MUTUALISÉ                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   ÉVÉNEMENT DÉTECTÉ                                               │
+│  └─ Reuters: "Scandale corruption chez Fournisseur X"              │
+│                                                                     │
+│   VIDOCQ CONSULTE LE GRAPHE GLOBAL                               │
+│  └─ Fournisseur X présent dans:                                    │
+│     • Supply Chain Entreprise A (Client Vidocq)                    │
+│     • Supply Chain Entreprise B (Client Vidocq)                    │
+│     • Due Diligence Cabinet C (Client Vidocq)                      │
+│                                                                     │
+│   ALERTES ENVOYÉES (Anonymisées)                                 │
+│  └─ "Fournisseur X noté à risque par un autre utilisateur"         │
+│  └─ Aucune indication de QUI a signalé → Confidentialité           │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Exemple concret:**
+
+```python
+# Entreprise A fait une investigation
+POST /discover/v2 {"entity": "Fournisseur X"}
+→ Vidocq détecte: Violation ESG majeure
+→ Fournisseur X tagué "HIGH_RISK" dans le graphe global
+
+# 3 jours plus tard, Entreprise B consulte son graphe
+GET /graph/visible
+→ ALERTE: "⚠️ Fournisseur X (votre Rang 2) a été signalé à risque 
+           par un autre utilisateur Vidocq. Due diligence recommandée."
+```
+
+**Valeur ajoutée:**
+-  **Intelligence Collective:** Chaque client enrichit le graphe pour tous
+-  **Confidentialité:** Impossible de savoir qui a signalé
+-  **Proactivité:** Alerte AVANT que le risque ne vous impacte
+
+---
+
+### 7. Surveillance Continue (Watchlist)
+
+**Placez des entités sous surveillance permanente.**
+
+```python
+# Ajouter une entité à surveiller
+POST /watchlist/add
+{
+  "entity_name": "Concurrent X",
+  "entity_type": "ORGANIZATION",
+  "alert_types": ["news", "sanctions", "ownership_change", "scandal"],
+  "frequency": "daily"
+}
+
+# Réponse:
+{
+  "status": "watching",
+  "entity": "Concurrent X",
+  "next_scan": "2024-01-15T06:00:00Z",
+  "alerts_enabled": true
+}
+```
+
+**Comment ça fonctionne:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SURVEILLANCE CONTINUE                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   WATCHLIST ACTIVE                                                │
+│  ├─ Concurrent X          → Scan quotidien                         │
+│  ├─ Fournisseur Critique  → Scan hebdomadaire                      │
+│  ├─ CEO nouveau partenaire → Scan quotidien                        │
+│  └─ Pays à risque (Russie) → Scan temps réel                       │
+│                                                                     │
+│   PROCESSUS AUTOMATIQUE                                           │
+│  1. Crawler OSINT lance recherche périodique                       │
+│  2. Compare avec état précédent du graphe                          │
+│  3. Détecte CHANGEMENTS (nouveau lien, nouveau risque, news)       │
+│  4. Envoie ALERTE si changement significatif                       │
+│                                                                     │
+│   TYPES D'ALERTES                                                 │
+│  ├─  Nouvelle mention presse                                     │
+│  ├─  Nouveau risque sanctions                                    │
+│  ├─  Changement de propriétaire/dirigeant                        │
+│  ├─  Scandale/Corruption détecté                                 │
+│  └─  Changement géopolitique affectant l'entité                  │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Exemple d'alerte reçue:**
+
+```json
+{
+  "alert_type": "OWNERSHIP_CHANGE",
+  "entity": "Fournisseur Stratégique Y",
+  "severity": "HIGH",
+  "summary": "Nouveau bénéficiaire effectif détecté: Holding basée aux Îles Caïmans",
+  "source": "Registre du Commerce, 14/01/2024",
+  "action_recommended": "Due diligence approfondie recommandée",
+  "link": "https://infogreffe.fr/..."
+}
+```
+
+**Cas d'usage:**
+-  **Supply Chain:** Surveiller vos 50 fournisseurs critiques 24/7
+-  **RH Sensible:** Alertes sur dirigeants de confiance (conflits d'intérêts)
+-  **M&A:** Suivre une cible d'acquisition avant l'offre
+-  **Sécurité:** Détecter les changements dans l'écosystème adverse
+
+---
+
+##  Cas d'Usage Critiques (Scénarios Réels)
+
+> **Ce que Vidocq détecte et que personne d'autre ne voit.**
+
+### Cas 1: Rachat Discret par Fonds Étrangers
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│   SCÉNARIO: Rachat d'un sous-traitant stratégique par un         │
+│              fonds chinois via société écran aux Caïmans            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  STRUCTURE CACHÉE:                                                  │
+│                                                                     │
+│   Fonds Souverain Chinois (CIC / Safe)                          │
+│       └─ Holding Luxembourg                                        │
+│            └─ SPV Îles Caïmans                                     │
+│                 └─ Société Écran Delaware                          │
+│                      └─ "Investor Group LLC"                       │
+│                           └─ VOTRE SOUS-TRAITANT              │
+│                                                                     │
+│  CE QUE VIDOCQ DÉTECTE:                                            │
+│  ✓ Changement bénéficiaire effectif (UBO) via registres            │
+│  ✓ Liens avec entités chinoises via OSINT                          │
+│  ✓ Pattern "Holding → SPV → Écran" = Signal fort                   │
+│  ✓ Corrélation avec intérêts stratégiques chinois                  │
+│                                                                     │
+│   ALERTE: "Acquisition potentielle par entité adverse"           │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cas 2: Holdings en Cascade (Poupées Russes)
+
+```python
+# Vidocq trace automatiquement les chaînes de propriété
+GET /brain/trace-ownership/SocieteX
+
+{
+  "target": "SocieteX (France)",
+  "ownership_chain": [
+    {"level": 0, "entity": "SocieteX SARL", "country": "France", "owner": "Holding Alpha"},
+    {"level": 1, "entity": "Holding Alpha", "country": "Luxembourg", "owner": "Beta Investments"},
+    {"level": 2, "entity": "Beta Investments", "country": "Pays-Bas", "owner": "Gamma Capital"},
+    {"level": 3, "entity": "Gamma Capital", "country": "Îles Caïmans", "owner": "Delta Trust"},
+    {"level": 4, "entity": "Delta Trust", "country": "BVI", "owner": "???"},
+    {"level": 5, "entity": "BÉNÉFICIAIRE EFFECTIF", "country": "Russie", "owner": "Oligarque Z"}
+  ],
+  "red_flags": [
+    "5 niveaux de holdings = opacité intentionnelle",
+    "Juridictions: Caïmans + BVI = paradis fiscaux",
+    "Terminaison en Russie = risque sanctions"
+  ],
+  "risk_score": 92,
+  "recommendation": "BLOCAGE recommandé - Due diligence niveau 3"
+}
+```
+
+### Cas 3: Espionnage Industriel via Recrutement
+
+```
+SCÉNARIO: Candidat "parfait" pour poste R&D Défense
+
+CE QUE LE CV DIT:
+  ✓ PhD MIT en cybersécurité
+  ✓ 10 ans chez Lockheed Martin
+  ✓ Publications académiques
+
+CE QUE VIDOCQ DÉTECTE (Ghost Detector):
+  ✗ Aucun profil LinkedIn avant 2021
+  ✗ Publications non indexées par Google Scholar
+  ✗ Ancien employeur: aucune trace dans annuaires internes
+  ✗ Email universitaire: domaine enregistré il y a 6 mois
+
+VERDICT: "PROFIL SYNTHÉTIQUE - PROBABLE LÉGENDE D'ESPION"
+```
+
+### Cas 4: Manipulation Boursière via Rumeurs
+
+```
+ÉVÉNEMENT: Chute de 15% du cours de Société ABC
+
+ANALYSE VIDOCQ (Contradiction Detector):
+- 14h32: Article négatif publié par "Financial Observer" (blog)
+- 14h45: Repris par 23 comptes Twitter coordonnés
+- 15h00: Chute boursière commence
+- 17h00: Démenti officiel (ignoré par les marchés)
+
+PATTERN DÉTECTÉ: 
+"Attack Narrative" - Campagne de désinformation coordonnée
+Sources: IP ukrainiennes, comptes créés < 30 jours
+
+ALERTE: "Manipulation informationnelle en cours"
+```
+
+### Cas 5: Contournement de Sanctions
+
+```
+SCÉNARIO: Fournisseur de composants électroniques
+
+VIDOCQ DÉTECTE:
+1. Fournisseur "Clean Tech Ltd" (Singapour) ✓ Apparence propre
+2. MAIS: Dirigeant = ancien employé société sanctionnée russe
+3. MAIS: Adresse = même bâtiment que filiale Rostec
+4. MAIS: 80% des exports → "clients" en Arménie, Kazakhstan, Kirghizistan
+   └─ Countries classiques de contournement sanctions
+
+VERDICT: "PROBABLE FRONT COMPANY pour contournement OFAC"
+RISQUE: Sanctions secondaires sur VOTRE entreprise
+```
+
+---
+
+##  Le Grand Graphe National (Vision)
+
+> **L'IA qui connaîtra l'économie française mieux que quiconque.**
+
+### Le Concept
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    LE GRAND GRAPHE VIDOCQ                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   CROISSANCE CUMULATIVE                                           │
+│  └─ Chaque investigation enrichit le graphe                        │
+│  └─ Chaque client apporte ses données                              │
+│  └─ Chaque analyste corrige et améliore                            │
+│                                                                     │
+│   CARTOGRAPHIE ÉCONOMIQUE COMPLÈTE                              │
+│  ├─ Entreprises françaises et leurs liens                          │
+│  ├─ Supply chains stratégiques                                     │
+│  ├─ Flux financiers et participations                              │
+│  ├─ Personnes clés et réseaux d'influence                          │
+│  └─ Risques géopolitiques par secteur                              │
+│                                                                     │
+│   IA QUI APPREND                                                  │
+│  ├─ Feedback analystes → Fine-tuning modèle                        │
+│  ├─ Patterns de risque → Détection automatique                     │
+│  ├─ Simulation de scénarios → Prédiction impacts                   │
+│  └─ Connaissance transversale → Connexions invisibles              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Apprentissage par les Analystes (RLHF)
+
+```python
+# L'analyste valide ou corrige une extraction
+POST /feedback
+{
+  "claim_id": "claim_12345",
+  "human_verdict": "CORRECT",  # ou "INCORRECT", "NEEDS_CONTEXT"
+  "correction": null,
+  "reasoning": "Relation confirmée via rapport annuel 2023"
+}
+
+# Ces données s'accumulent pour entraîner le modèle
+GET /feedback/export-training
+
+{
+  "total_feedback": 15420,
+  "accuracy_improvement": "+12% depuis lancement",
+  "top_corrections": [
+    "Confusion fréquente: PARTNER vs SUPPLIER",
+    "Géolocalisation imprécise: villes chinoises"
+  ],
+  "model_version": "v2.3-finetuned-fr"
+}
+```
+
+### Simulation de Scénarios (Wargaming Avancé)
+
+```python
+# L'État ou une entreprise stratégique demande:
+# "Que se passe-t-il si la Chine envahit Taiwan?"
+
+POST /brain/simulate
+{
+  "scenario": "TAIWAN_INVASION",
+  "parameters": {
+    "trigger": "Blocus maritime chinois",
+    "duration_weeks": 8,
+    "affected_sectors": ["semiconductors", "electronics", "automotive"]
+  },
+  "scope": "FRENCH_ECONOMY"
+}
+
+# Vidocq analyse son Grand Graphe et répond:
+{
+  "scenario": "TAIWAN_INVASION",
+  "impact_assessment": {
+    "companies_affected": 2847,
+    "sectors_critical": ["Automobile", "Aérospatiale", "Défense", "Télécom"],
+    "supply_chain_breaks": [
+      {
+        "component": "Semiconducteurs avancés (<7nm)",
+        "dependency": "95% Taiwan (TSMC)",
+        "time_to_shortage": "3-4 semaines",
+        "french_companies_impacted": ["Renault", "Stellantis", "Valeo", "STMicro"]
+      },
+      {
+        "component": "Terres rares",
+        "dependency": "87% Chine",
+        "time_to_shortage": "6-8 semaines",
+        "french_companies_impacted": ["Safran", "Airbus", "Naval Group"]
+      }
+    ],
+    "estimated_gdp_impact": "-2.3%",
+    "recommended_actions": [
+      "Constituer stocks stratégiques semiconducteurs",
+      "Identifier fournisseurs alternatifs (Intel, Samsung)",
+      "Accélérer production européenne (projet CHIPS Act)"
+    ]
+  }
+}
+```
+
+### L'IA de la Souveraineté Nationale
+
+> **Vidocq ambitionne de devenir l'infrastructure de renseignement économique de la France.**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    VISION: IA SOUVERAINE                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   OBJECTIF                                                        │
+│  └─ Une IA qui comprend TOUT de l'économie française               │
+│  └─ Fiscalité, actionnariat, supply chains, risques                │
+│  └─ Capable de simuler n'importe quel scénario                     │
+│                                                                     │
+│   SOURCES D'APPRENTISSAGE                                         │
+│  ├─ OSINT mondial (web, presse, réseaux)                           │
+│  ├─ Registres officiels (Infogreffe, INSEE, Douanes)               │
+│  ├─ Feedback analystes (DGSI, DGSE, Tracfin, entreprises)          │
+│  ├─ Données sectorielles (fédérations, syndicats)                  │
+│  └─ Rapports d'investigation (anonymisés)                          │
+│                                                                     │
+│   CAS D'USAGE SOUVERAIN                                          │
+│  ├─ Screening investissements étrangers (IEF)                      │
+│  ├─ Protection des pépites technologiques                          │
+│  ├─ Détection ingérence économique                                 │
+│  ├─ Anticipation crises supply chain                               │
+│  └─ Cartographie réseaux d'influence hostiles                      │
+│                                                                     │
+│   CLIENTS CIBLES                                                 │
+│  ├─ SGDSN, DGSI, DGSE, Tracfin                                     │
+│  ├─ Direction Générale des Entreprises (DGE)                       │
+│  ├─ Ministère des Armées                                           │
+│  ├─ OIV (Opérateurs d'Importance Vitale)                           │
+│  └─ Grandes entreprises stratégiques                               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Effet Réseau: Plus de Clients = IA Plus Intelligente
+
+```
+JOUR 1: 10 clients → Graphe de 50,000 entités
+        ↓
+        Modèle détecte patterns basiques
+
+AN 1:   100 clients → Graphe de 500,000 entités
+        ↓
+        Modèle prédit risques sectoriels
+
+AN 3:   1000 clients → Graphe de 5,000,000 entités
+        ↓
+        Modèle simule impacts macro-économiques
+
+AN 5:   Couverture nationale → LE GRAPHE ÉCONOMIQUE FRANÇAIS
+        ↓
+        IA de référence pour la souveraineté économique
+```
+
+**C'est l'asset stratégique: le modèle s'apprécie avec chaque utilisation.**
+
+
 
 > **Vidocq n'est pas limité à la Supply Chain. C'est une plateforme d'investigation universelle.**
 
@@ -306,27 +706,27 @@ L'architecture est **agnostique à la cible**. Un même moteur, 5 marchés :
 │                    VIDOCQ - PLATEFORME UNIVERSELLE                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  🏭 MODULE SUPPLY CHAIN (Fer de Lance)                             │
+│   MODULE SUPPLY CHAIN (Fer de Lance)                             │
 │  └─ Cible: Directeurs Achats, Compliance CSDDD                     │
 │  └─ Besoin: "Qui sont mes fournisseurs de rang N?"                 │
 │  └─ Loi: CSDDD (5000 ETI obligées de s'équiper)                    │
 │                                                                     │
-│  💰 MODULE KYC/AML (Finance)                                        │
+│   MODULE KYC/AML (Finance)                                        │
 │  └─ Cible: Banques, Fonds d'investissement                         │
 │  └─ Besoin: "Cette origine de fonds est-elle propre?"              │
 │  └─ Valeur: Automatise la Due Diligence anti-blanchiment           │
 │                                                                     │
-│  🤝 MODULE M&A (Fusions-Acquisitions)                               │
+│   MODULE M&A (Fusions-Acquisitions)                               │
 │  └─ Cible: Private Equity, Cabinets Conseil                        │
 │  └─ Besoin: "Cette cible d'acquisition cache-t-elle des risques?"  │
 │  └─ Valeur: Le radar à cadavres dans le placard                    │
 │                                                                     │
-│  👔 MODULE RH (Vetting Stratégique)                                 │
+│   MODULE RH (Vetting Stratégique)                                 │
 │  └─ Cible: DRH Défense, Nucléaire, R&D                             │
 │  └─ Besoin: "Ce candidat est-il vraiment qui il prétend être?"     │
 │  └─ Valeur: Ghost Detector contre menace interne                   │
 │                                                                     │
-│  📰 MODULE MÉDIAS/ONG (Contre-Influence)                            │
+│   MODULE MÉDIAS/ONG (Contre-Influence)                            │
 │  └─ Cible: Directions Communication, Lobbys                        │
 │  └─ Besoin: "Qui finance cette ONG qui nous attaque?"              │
 │  └─ Valeur: Démasquer le lobbying caché                            │
@@ -351,7 +751,7 @@ GET /brain/classify/Taiwan
 
 ---
 
-## 🛡️ Système Anti-Bruit (CIA/OTAN Style)
+##  Système Anti-Bruit (CIA/OTAN Style)
 
 > *"Raw Intelligence Never Dies"* - Aucune donnée n'est jamais supprimée.
 
@@ -383,7 +783,7 @@ GET /graph/visible?show_all=true
 
 ---
 
-## 📊 Gestion de la Confiance et Fiabilité
+##  Gestion de la Confiance et Fiabilité
 
 ### Le Système de Scoring
 
@@ -473,7 +873,7 @@ AVEC VIDOCQ:
 
 ---
 
-## ⚡ Discovery Engine v2.0 (NOUVEAU)
+##  Discovery Engine v2.0 
 
 > **3x plus rapide grâce à la parallélisation et au caching intelligent.**
 
@@ -484,25 +884,25 @@ AVEC VIDOCQ:
 │                    DISCOVERY ENGINE v2.0                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  📥 ENTRÉE                                                          │
+│   ENTRÉE                                                          │
 │  └─ Nom d'entité (ex: "STMicroelectronics")                        │
 │                                                                     │
-│  🔍 PHASE 1: CHECK CACHE (Redis)                                   │
+│   PHASE 1: CHECK CACHE (Redis)                                   │
 │  └─ Si déjà investigué < 24h → Retourne résultat immédiat         │
 │                                                                     │
-│  🧠 PHASE 2: GÉNÉRATION QUERIES (LLM)                              │
+│   PHASE 2: GÉNÉRATION QUERIES (LLM)                              │
 │  └─ 5 requêtes intelligentes multilingues                          │
 │  └─ Fallback queries si LLM échoue                                 │
 │                                                                     │
-│  ⚡ PHASE 3: EXÉCUTION PARALLÈLE (ThreadPoolExecutor)              │
+│   PHASE 3: EXÉCUTION PARALLÈLE (ThreadPoolExecutor)              │
 │  └─ 3 workers simultanés                                           │
 │  └─ Délai anti-bot aléatoire (1-2.5s)                              │
 │                                                                     │
-│  🧹 PHASE 4: DÉDUPLICATION                                          │
+│   PHASE 4: DÉDUPLICATION                                          │
 │  └─ Filtre URLs déjà traitées                                      │
 │  └─ Stockage cache pour prochaine fois                             │
 │                                                                     │
-│  📤 SORTIE                                                          │
+│   SORTIE                                                          │
 │  └─ Liste d'URLs uniques à ingérer                                 │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -546,7 +946,7 @@ POST /discover/v2
 
 ---
 
-## 📊 Risk Scoring Multi-Dimensionnel (NOUVEAU)
+##  Risk Scoring Multi-Dimensionnel (NOUVEAU)
 
 > **Évaluez le risque réel de chaque entité avec 5 dimensions d'analyse.**
 
@@ -557,23 +957,23 @@ POST /discover/v2
 │                    SCORING MULTI-DIMENSIONNEL                       │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  📊 CONCENTRATION (20%)                                             │
+│   CONCENTRATION (20%)                                             │
 │  └─ Dépendance à un seul fournisseur                               │
 │  └─ Score élevé = risque de single-point-of-failure               │
 │                                                                     │
-│  🌍 GÉOPOLITIQUE (25%)                                              │
+│   GÉOPOLITIQUE (25%)                                              │
 │  └─ Risque pays (Russie=95, France=5, Chine=70...)                 │
 │  └─ Base de données 40+ pays avec scores                          │
 │                                                                     │
-│  📏 PROFONDEUR (15%)                                                │
+│   PROFONDEUR (15%)                                                │
 │  └─ Visibilité N-tier (Rang 1, 2, 3...)                            │
 │  └─ Score élevé = mauvaise visibilité supply chain                 │
 │                                                                     │
-│  ⚠️ SANCTIONS (25%)                                                 │
+│   SANCTIONS (25%)                                                 │
 │  └─ Exposition OFAC, SDN, Entity List                              │
 │  └─ Détection automatique via mots-clés                            │
 │                                                                     │
-│  🌱 ESG (15%)                                                       │
+│   ESG (15%)                                                       │
 │  └─ Environnemental, Social, Gouvernance                           │
 │  └─ Forced labor, corruption, pollution...                         │
 │                                                                     │
@@ -680,7 +1080,7 @@ GET /risk/supply-chain/Safran
 
 ---
 
-## 🗄️ Système de Cache Intelligent (NOUVEAU)
+##  Système de Cache Intelligent 
 
 > **Évitez les recherches dupliquées et accélérez les investigations.**
 
@@ -691,17 +1091,17 @@ GET /risk/supply-chain/Safran
 │                       DISCOVERY CACHE (Redis)                       │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  🔍 CACHE RECHERCHES                                                │
+│   CACHE RECHERCHES                                                │
 │  └─ Clé: hash(query)                                               │
 │  └─ Valeur: résultats JSON                                         │
 │  └─ TTL: 24 heures                                                 │
 │                                                                     │
-│  📎 DÉDUPLICATION URLs                                              │
+│   DÉDUPLICATION URLs                                              │
 │  └─ Clé: hash(url)                                                 │
 │  └─ Valeur: {source, processed, timestamp}                         │
 │  └─ TTL: 7 jours                                                   │
 │                                                                     │
-│  📚 HISTORIQUE ENTITÉS                                              │
+│   HISTORIQUE ENTITÉS                                              │
 │  └─ Clé: hash(entity_name)                                         │
 │  └─ Valeur: {urls, depth, last_updated}                            │
 │  └─ TTL: 30 jours                                                  │
@@ -736,7 +1136,7 @@ GET /cache/stats
 ```
 
 
-## 📈 Comparatif Concurrentiel
+## Comparatif Concurrentiel
 
 ### La Matrice de Positionnement
 
@@ -760,7 +1160,7 @@ ETI STRATÉGIQUES → 5000 entreprises (10k€/an) = 50M€ de marché
 
 ---
 
-## 🚀 Démarrage Rapide
+##  Démarrage Rapide
 
 ### Prérequis
 
@@ -813,7 +1213,7 @@ curl http://localhost:8000/status
 
 ---
 
-## 🗺️ Roadmap et Vision
+## Roadmap et Vision
 
 ### Phases de Développement
 
@@ -845,7 +1245,7 @@ AUJOURD'HUI: Outil d'investigation
 
 ---
 
-## 🔐 Souveraineté & Sécurité
+##  Souveraineté & Sécurité
 
 ### Migration Souveraine (Roadmap)
 
@@ -871,7 +1271,7 @@ AUJOURD'HUI: Outil d'investigation
 
 ---
 
-## 📁 Structure du Projet
+##  Structure du Projet
 
 ```
 vidocq/
@@ -881,34 +1281,34 @@ vidocq/
 │   │   ├── routes.py            # Tous les endpoints
 │   │   └── dependencies.py      # Injection de dépendances
 │   │
-│   ├── brain/                   # 🧠 Le Cerveau
+│   ├── brain/                   #  Le Cerveau
 │   │   ├── core_logic.py        # Classification + Mémoire
 │   │   ├── negative_space.py    # Ghost Detector
 │   │   ├── contradiction_detector.py  # Guerre Narrative
 │   │   ├── wargaming.py         # Simulation Catastrophe
 │   │   └── reporter.py          # Rapports géo-sourcés
 │   │
-│   ├── pipeline/                # ⚙️ Extraction
+│   ├── pipeline/                # Extraction
 │   │   ├── discovery.py         # Agent de découverte v1
-│   │   ├── discovery_v2.py      # Discovery v2 (cache + parallel) ⚡ NOUVEAU
+│   │   ├── discovery_v2.py      # Discovery v2 (cache + parallel) NOUVEAU
 │   │   ├── extractor.py         # Extraction LLM (COT v2.0)
 │   │   ├── prompts.py           # Prompts versionnés
 │   │   ├── tasks.py             # Celery tasks
 │   │   └── resolver.py          # Résolution d'entités
 │   │
-│   ├── storage/                 # 💾 Stockage
+│   ├── storage/                 #  Stockage
 │   │   ├── graph.py             # Neo4j (batch APOC)
 │   │   ├── vector.py            # Qdrant (768-dim)
-│   │   └── cache.py             # Redis cache 🗄️ NOUVEAU
+│   │   └── cache.py             # Redis cache  NOUVEAU
 │   │
-│   ├── core/                    # 🔧 Core
+│   ├── core/                    #  Core
 │   │   ├── embedding.py         # Embeddings Gemini
 │   │   ├── ontology.py          # Types entités/relations
 │   │   ├── models.py            # Modèles Pydantic
-│   │   ├── risk_scoring.py      # Scoring multi-dimensionnel 📊 NOUVEAU
+│   │   ├── risk_scoring.py      # Scoring multi-dimensionnel  NOUVEAU
 │   │   └── logging.py           # Logs structurés
 │   │
-│   └── ingestion/               # 👁️ Collecte
+│   └── ingestion/               #  Collecte
 │       ├── tasks.py             # Tâches Celery
 │       ├── stealth.py           # Anti-détection
 │       ├── parser.py            # Parsing HTML
@@ -923,7 +1323,7 @@ vidocq/
 
 ---
 
-## 📊 Métriques Techniques
+## Métriques Techniques
 
 ### Performance
 
@@ -946,7 +1346,7 @@ vidocq/
 
 ---
 
-## 💰 Le Pitch Investisseur (60 secondes)
+## Le Pitch Investisseur (60 secondes)
 
 > *"Vidocq est un agent de renseignement autonome.*
 > 
@@ -962,11 +1362,10 @@ vidocq/
 
 ---
 
-## 📜 Licence
+##  Licence
 
 Proprietary - All Rights Reserved
 
-Pour les demandes de licence commerciale : contact@vidocq.ai
 
 ---
 
