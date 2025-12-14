@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIDOCQ - Graphe de Connaissances</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #0f1520;
+            --bg-card: #1a2332;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #1e40af;
+            --accent-gold: #b8860b;
+            --accent-green: #22c55e;
+            --accent-red: #dc2626;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(59, 130, 246, 0.15);
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            height: 60px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-emblem {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        .logo-title {
+            font-size: 20px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            letter-spacing: 2px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-card);
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .control-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+        }
+
+        .slider {
+            width: 120px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: var(--accent-primary);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--accent-secondary);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--accent-green);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main {
+            display: flex;
+            height: calc(100vh - 60px);
+            margin-top: 60px;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 12px;
+            font-family: var(--font-mono);
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .legend {
+            margin-bottom: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--accent-primary);
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .node-detail {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            display: none;
+        }
+
+        .node-detail.active {
+            display: block;
+        }
+
+        .node-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .node-type {
+            font-size: 11px;
+            color: var(--accent-primary);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 12px;
+            font-family: var(--font-mono);
+        }
+
+        .relation-list {
+            margin-top: 12px;
+        }
+
+        .relation-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .relation-type {
+            color: var(--accent-primary);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            min-width: 70px;
+        }
+
+        .graph-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            max-width: 250px;
+        }
+
+        .tooltip.active {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .tooltip-type {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-emblem">V</div>
+            <span class="logo-title">VIDOCQ GRAPH</span>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <span class="control-label">Confiance Min</span>
+                <input type="range" class="slider" id="confidence-filter" min="0" max="100" value="0">
+                <span id="confidence-value" style="font-family: var(--font-mono); font-size: 12px; min-width: 35px;">0%</span>
+            </div>
+            <button class="btn btn-outline" onclick="resetZoom()">Reset Vue</button>
+            <button class="btn" onclick="loadGraph()">Recharger</button>
+        </div>
+
+        <div class="status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Connexion...</span>
+        </div>
+    </header>
+
+    <div class="main">
+        <aside class="sidebar">
+            <div class="search-box">
+                <input type="text" class="search-input" id="search" placeholder="Rechercher une entite...">
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="node-count">0</div>
+                    <div class="stat-label">Entites</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="edge-count">0</div>
+                    <div class="stat-label">Relations</div>
+                </div>
+            </div>
+
+            <div class="section-title">Legende</div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #3b82f6;"></div>
+                    <span>Organisation</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #22c55e;"></div>
+                    <span>Personne</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #f59e0b;"></div>
+                    <span>Pays</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #8b5cf6;"></div>
+                    <span>Ville</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #ef4444;"></div>
+                    <span>Societe Ecran</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #f97316;"></div>
+                    <span>Gouvernement</span>
+                </div>
+            </div>
+
+            <div class="section-title">Details Entite</div>
+            <div class="node-detail" id="node-detail">
+                <div class="node-name" id="detail-name">-</div>
+                <div class="node-type" id="detail-type">-</div>
+                <div class="relation-list" id="detail-relations"></div>
+            </div>
+            <div id="no-selection" style="color: var(--text-muted); font-size: 12px;">
+                Cliquez sur un noeud pour voir les details
+            </div>
+        </aside>
+
+        <div class="graph-container">
+            <svg id="graph"></svg>
+            <div class="tooltip" id="tooltip"></div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Chargement du graphe...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let simulation, svg, g, link, node, labels;
+        let graphData = { nodes: [], edges: [] };
+        let currentConfidence = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initGraph();
+            loadGraph();
+            
+            document.getElementById('confidence-filter').addEventListener('input', (e) => {
+                currentConfidence = parseInt(e.target.value);
+                document.getElementById('confidence-value').textContent = currentConfidence + '%';
+                filterByConfidence();
+            });
+
+            document.getElementById('search').addEventListener('input', (e) => {
+                searchNodes(e.target.value);
+            });
+        });
+
+        function initGraph() {
+            const container = document.querySelector('.graph-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            svg = d3.select('#graph')
+                .attr('width', width)
+                .attr('height', height);
+
+            // Add zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+
+            svg.call(zoom);
+            
+            g = svg.append('g');
+
+            // Arrow marker for directed edges
+            svg.append('defs').append('marker')
+                .attr('id', 'arrowhead')
+                .attr('viewBox', '-0 -5 10 10')
+                .attr('refX', 20)
+                .attr('refY', 0)
+                .attr('orient', 'auto')
+                .attr('markerWidth', 6)
+                .attr('markerHeight', 6)
+                .append('path')
+                .attr('d', 'M 0,-5 L 10,0 L 0,5')
+                .attr('fill', '#64748b');
+
+            simulation = d3.forceSimulation()
+                .force('link', d3.forceLink().id(d => d.id).distance(120))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(40));
+
+            window.addEventListener('resize', () => {
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                svg.attr('width', w).attr('height', h);
+                simulation.force('center', d3.forceCenter(w / 2, h / 2));
+            });
+        }
+
+        async function loadGraph() {
+            document.getElementById('loading').style.display = 'block';
+            
+            try {
+                const response = await fetch(`${API_BASE}/graph/visualization?limit=200`);
+                
+                if (!response.ok) throw new Error('API Error');
+                
+                graphData = await response.json();
+                
+                document.getElementById('status-text').textContent = 'Connecte';
+                document.getElementById('status-dot').style.background = 'var(--accent-green)';
+                
+                renderGraph(graphData);
+                
+            } catch (error) {
+                console.error('Graph load error:', error);
+                document.getElementById('status-text').textContent = 'Mode Demo';
+                document.getElementById('status-dot').style.background = 'var(--accent-gold)';
+                
+                // Load demo data
+                loadDemoData();
+            }
+            
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function loadDemoData() {
+            graphData = {
+                nodes: [
+                    { id: '1', label: 'TotalEnergies', type: 'ORGANIZATION', color: '#3b82f6' },
+                    { id: '2', label: 'Safran', type: 'ORGANIZATION', color: '#3b82f6' },
+                    { id: '3', label: 'Airbus', type: 'ORGANIZATION', color: '#3b82f6' },
+                    { id: '4', label: 'France', type: 'COUNTRY', color: '#f59e0b' },
+                    { id: '5', label: 'CEO Jean Dupont', type: 'PERSON', color: '#22c55e' },
+                    { id: '6', label: 'Fournisseur Chine', type: 'ORGANIZATION', color: '#3b82f6' },
+                    { id: '7', label: 'Chine', type: 'COUNTRY', color: '#f59e0b' },
+                    { id: '8', label: 'Holding Caymans', type: 'SHELL_COMPANY', color: '#ef4444' },
+                    { id: '9', label: 'Russie', type: 'COUNTRY', color: '#f59e0b' },
+                    { id: '10', label: 'Gazprom', type: 'ORGANIZATION', color: '#3b82f6' },
+                ],
+                edges: [
+                    { source: '1', target: '4', label: 'LOCATED_IN', confidence: 0.95 },
+                    { source: '2', target: '4', label: 'LOCATED_IN', confidence: 0.95 },
+                    { source: '3', target: '4', label: 'LOCATED_IN', confidence: 0.95 },
+                    { source: '5', target: '1', label: 'LEADS', confidence: 0.88 },
+                    { source: '6', target: '3', label: 'SUPPLIES', confidence: 0.72 },
+                    { source: '6', target: '7', label: 'LOCATED_IN', confidence: 0.85 },
+                    { source: '8', target: '6', label: 'OWNS', confidence: 0.45 },
+                    { source: '10', target: '9', label: 'LOCATED_IN', confidence: 0.95 },
+                    { source: '1', target: '10', label: 'PARTNER', confidence: 0.35 },
+                ]
+            };
+            renderGraph(graphData);
+        }
+
+        function renderGraph(data) {
+            // Clear existing
+            g.selectAll('*').remove();
+
+            // Update stats
+            document.getElementById('node-count').textContent = data.nodes.length;
+            document.getElementById('edge-count').textContent = data.edges.length;
+
+            // Create links
+            link = g.append('g')
+                .attr('class', 'links')
+                .selectAll('line')
+                .data(data.edges)
+                .enter().append('line')
+                .attr('stroke', d => getEdgeColor(d.confidence))
+                .attr('stroke-opacity', 0.6)
+                .attr('stroke-width', 2)
+                .attr('marker-end', 'url(#arrowhead)');
+
+            // Create link labels
+            const linkLabels = g.append('g')
+                .attr('class', 'link-labels')
+                .selectAll('text')
+                .data(data.edges)
+                .enter().append('text')
+                .attr('font-size', 9)
+                .attr('fill', '#64748b')
+                .attr('text-anchor', 'middle')
+                .text(d => d.label);
+
+            // Create nodes
+            node = g.append('g')
+                .attr('class', 'nodes')
+                .selectAll('circle')
+                .data(data.nodes)
+                .enter().append('circle')
+                .attr('r', 12)
+                .attr('fill', d => d.color || '#6b7280')
+                .attr('stroke', '#1a2332')
+                .attr('stroke-width', 2)
+                .attr('cursor', 'pointer')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('click', (event, d) => showNodeDetail(d))
+                .on('mouseover', (event, d) => showTooltip(event, d))
+                .on('mouseout', hideTooltip);
+
+            // Create labels
+            labels = g.append('g')
+                .attr('class', 'labels')
+                .selectAll('text')
+                .data(data.nodes)
+                .enter().append('text')
+                .attr('font-size', 11)
+                .attr('fill', '#e2e8f0')
+                .attr('text-anchor', 'middle')
+                .attr('dy', 25)
+                .text(d => truncate(d.label, 15));
+
+            // Update simulation
+            simulation.nodes(data.nodes).on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                linkLabels
+                    .attr('x', d => (d.source.x + d.target.x) / 2)
+                    .attr('y', d => (d.source.y + d.target.y) / 2);
+
+                node
+                    .attr('cx', d => d.x)
+                    .attr('cy', d => d.y);
+
+                labels
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y);
+            });
+
+            simulation.force('link').links(data.edges);
+            simulation.alpha(1).restart();
+        }
+
+        function getEdgeColor(confidence) {
+            if (!confidence) return '#64748b';
+            if (confidence >= 0.8) return '#22c55e';
+            if (confidence >= 0.5) return '#f59e0b';
+            return '#ef4444';
+        }
+
+        function truncate(str, len) {
+            return str.length > len ? str.substring(0, len) + '...' : str;
+        }
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        function showTooltip(event, d) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = `
+                <div class="tooltip-title">${d.label}</div>
+                <div class="tooltip-type">${d.type || 'Entity'}</div>
+            `;
+            tooltip.style.left = (event.pageX + 15) + 'px';
+            tooltip.style.top = (event.pageY - 60) + 'px';
+            tooltip.classList.add('active');
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('active');
+        }
+
+        function showNodeDetail(node) {
+            document.getElementById('no-selection').style.display = 'none';
+            document.getElementById('node-detail').classList.add('active');
+            document.getElementById('detail-name').textContent = node.label;
+            document.getElementById('detail-type').textContent = node.type || 'Entity';
+
+            // Find related edges
+            const relations = graphData.edges.filter(e => 
+                e.source.id === node.id || e.target.id === node.id ||
+                e.source === node.id || e.target === node.id
+            );
+
+            const relationsHtml = relations.map(r => {
+                const isSource = (r.source.id || r.source) === node.id;
+                const other = isSource ? (r.target.label || r.target) : (r.source.label || r.source);
+                return `
+                    <div class="relation-item">
+                        <span class="relation-type">${r.label}</span>
+                        <span>${isSource ? '→' : '←'} ${other}</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('detail-relations').innerHTML = relationsHtml || '<div style="color: var(--text-muted)">Aucune relation</div>';
+        }
+
+        function filterByConfidence() {
+            const threshold = currentConfidence / 100;
+            
+            link.attr('opacity', d => (d.confidence || 1) >= threshold ? 1 : 0.1);
+            
+            // Find nodes that have at least one visible edge
+            const visibleNodes = new Set();
+            graphData.edges.forEach(e => {
+                if ((e.confidence || 1) >= threshold) {
+                    visibleNodes.add(e.source.id || e.source);
+                    visibleNodes.add(e.target.id || e.target);
+                }
+            });
+
+            node.attr('opacity', d => threshold === 0 || visibleNodes.has(d.id) ? 1 : 0.2);
+            labels.attr('opacity', d => threshold === 0 || visibleNodes.has(d.id) ? 1 : 0.2);
+        }
+
+        function searchNodes(query) {
+            const q = query.toLowerCase();
+            
+            node.attr('opacity', d => q === '' || d.label.toLowerCase().includes(q) ? 1 : 0.15);
+            labels.attr('opacity', d => q === '' || d.label.toLowerCase().includes(q) ? 1 : 0.15);
+            
+            if (q) {
+                node.attr('r', d => d.label.toLowerCase().includes(q) ? 18 : 12);
+            } else {
+                node.attr('r', 12);
+            }
+        }
+
+        function resetZoom() {
+            svg.transition().duration(500).call(
+                d3.zoom().transform,
+                d3.zoomIdentity
+            );
+        }
+    </script>
+</body>
+</html>

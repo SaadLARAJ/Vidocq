@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 
 app = FastAPI(
     title="Vidocq - ShadowMap Intelligence",
-    version="5.0.0",
+    version="6.0.0",
     description="Autonomous OSINT Investigation Agent - Powered by AI"
 )
 
@@ -34,20 +34,26 @@ if os.path.exists(frontend_path):
 async def root():
     return {
         "name": "Vidocq",
-        "version": "5.0.0",
+        "version": "6.0.0",
         "description": "Autonomous OSINT Investigation Agent",
-        "ui": "/ui/index.html",
+        "ui": {
+            "dashboard": "/ui/dashboard.html",
+            "graph": "/ui/graph.html",
+            "legacy": "/ui/index.html"
+        },
         "docs": "/docs",
         "endpoints": {
             "investigate": "/investigate/{entity}",
             "analyze": "/graph/analyze",
-            "report": "/report/generate"
+            "discover": "/discover/v2",
+            "risk": "/risk/score",
+            "watchlist": "/watchlist"
         }
     }
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("vidocq_startup", version="5.0.0")
+    logger.info("vidocq_startup", version="6.0.0")
 
 @app.on_event("shutdown")
 async def shutdown_event():

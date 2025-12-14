@@ -3,109 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vidocq - Intelligence Autonome</title>
-    
-    <!-- Modern Typography -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="styles.css">
+    <title>Vidocq - Agent de Renseignement Autonome</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #0f1520;
+            --bg-card: #1a2332;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #1e40af;
+            --accent-gold: #b8860b;
+            --accent-green: #22c55e;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(59, 130, 246, 0.15);
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 30% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 80%, rgba(30, 64, 175, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        .container {
+            text-align: center;
+            max-width: 600px;
+            padding: 40px;
+        }
+        .logo-emblem {
+            width: 80px; height: 80px;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; font-weight: 700; font-family: var(--font-mono);
+            color: white;
+            margin: 0 auto 24px;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
+        }
+        h1 {
+            font-size: 48px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            letter-spacing: 4px;
+            margin-bottom: 12px;
+        }
+        .version {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(184, 134, 11, 0.15);
+            border: 1px solid var(--accent-gold);
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--accent-gold);
+            font-family: var(--font-mono);
+            margin-bottom: 24px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-primary);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
+        }
+        .card-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .card-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .api-link {
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-size: 14px;
+            font-family: var(--font-mono);
+        }
+        .api-link:hover {
+            text-decoration: underline;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 32px;
+            font-size: 13px;
+            color: var(--accent-green);
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <div class="logo">
-                <div class="logo-icon">V</div>
-                <h1>VIDOCQ</h1>
-                <span class="tagline">Intelligence Autonome</span>
-            </div>
-            <div class="header-actions">
-                <button class="btn-icon" id="btn-stats" title="Statistiques">📊</button>
-                <button class="btn-icon" id="btn-report" title="Rapport">📄</button>
-            </div>
-        </header>
+    <div class="container">
+        <div class="logo-emblem">V</div>
+        <h1>VIDOCQ</h1>
+        <div class="version">v6.0.0</div>
+        <p class="subtitle">Agent de Renseignement Economique Autonome</p>
+        
+        <div class="card-grid">
+            <a href="dashboard.html" class="card">
+                <div class="card-icon">🔍</div>
+                <div class="card-title">Dashboard</div>
+                <div class="card-desc">Investigation, Risk Scoring, Watchlist</div>
+            </a>
+            <a href="graph.html" class="card">
+                <div class="card-icon">🕸️</div>
+                <div class="card-title">Graphe</div>
+                <div class="card-desc">Visualisation Neo4j avec D3.js</div>
+            </a>
+        </div>
 
-        <!-- Main -->
-        <main class="main-content">
-            <!-- Chat -->
-            <div class="chat-panel">
-                <div class="chat-messages" id="chat-messages">
-                    <div class="message assistant">
-                        <div class="message-avatar">V</div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="message-author">Vidocq</span>
-                            </div>
-                            <div class="message-text">
-                                <p>Bonjour. Je suis <strong>Vidocq</strong>, votre agent d'investigation autonome.</p>
-                                <p>Donnez-moi le nom d'une entreprise, d'une personne ou d'une organisation à investiguer.</p>
-                                <p>Je vais automatiquement :</p>
-                                <p>• Rechercher des sources OSINT sur le web<br>
-                                   • Extraire les entités et leurs connexions<br>
-                                   • Vérifier les informations contre des bases de données<br>
-                                   • Générer un rapport d'intelligence</p>
-                                <span class="hint">💡 Essayez : "Gazprom", "BlackRock", "RT News"</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <a href="/docs" class="api-link">📚 Documentation API (Swagger) →</a>
 
-                <!-- Input -->
-                <div class="chat-input-container">
-                    <div class="chat-input-wrapper">
-                        <textarea id="user-input" placeholder="Entrez une cible à investiguer..." rows="1"></textarea>
-                        <button id="send-btn" class="send-button">↵</button>
-                    </div>
-                    <div class="input-hint">Entrée pour envoyer</div>
-                </div>
-            </div>
-
-            <!-- Side Panel -->
-            <div class="side-panel" id="side-panel">
-                <div class="side-panel-header">
-                    <h3>Détails</h3>
-                    <button class="btn-close" id="close-panel">×</button>
-                </div>
-                <div class="side-panel-content" id="side-panel-content">
-                    <div class="empty-state">
-                        <span class="empty-icon">🔍</span>
-                        <p>Lancez une investigation pour voir les résultats.</p>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Status -->
-        <footer class="status-bar">
-            <div class="status-left">
-                <span class="status-indicator online"></span>
-                <span id="connection-status">Connecté</span>
-            </div>
-            <div class="status-right">
-                <span id="entity-count">0 entités</span>
-                <span class="separator">•</span>
-                <span id="relation-count">0 relations</span>
-            </div>
-        </footer>
-    </div>
-
-    <!-- Modal -->
-    <div class="modal" id="report-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Rapport d'Intelligence</h2>
-                <button class="btn-close" id="close-modal">×</button>
-            </div>
-            <div class="modal-body" id="report-content"></div>
-            <div class="modal-footer">
-                <button class="btn-secondary" id="close-report">Fermer</button>
-                <button class="btn-primary" id="print-report">Télécharger PDF</button>
-            </div>
+        <div class="status">
+            <span class="status-dot"></span>
+            <span>Systeme Operationnel</span>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        // Auto-redirect to dashboard after 3 seconds
+        // setTimeout(() => { window.location.href = 'dashboard.html'; }, 3000);
+    </script>
 </body>
 </html>

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIDOCQ - Agent de Renseignement Autonome</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #0f1520;
+            --bg-tertiary: #141c2a;
+            --bg-card: #1a2332;
+            --bg-card-hover: #1f2942;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #1e40af;
+            --accent-gold: #b8860b;
+            --accent-green: #22c55e;
+            --accent-yellow: #eab308;
+            --accent-orange: #f97316;
+            --accent-red: #dc2626;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --text-accent: #60a5fa;
+            --border-color: rgba(59, 130, 246, 0.15);
+            --border-accent: rgba(59, 130, 246, 0.4);
+            --glow-blue: 0 0 20px rgba(59, 130, 246, 0.3);
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 80%, rgba(30, 64, 175, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        .header {
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo { display: flex; align-items: center; gap: 14px; }
+        .logo-emblem {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-primary) 100%);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 18px; font-family: var(--font-mono);
+            color: white;
+            box-shadow: var(--glow-blue);
+        }
+        .logo-title { font-size: 22px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 3px; }
+        .logo-subtitle { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
+        .header-actions { display: flex; gap: 16px; align-items: center; }
+        .classification-badge {
+            padding: 6px 14px;
+            background: rgba(184, 134, 11, 0.15);
+            border: 1px solid var(--accent-gold);
+            border-radius: 4px;
+            font-size: 11px; font-weight: 600;
+            color: var(--accent-gold);
+            letter-spacing: 1px;
+            font-family: var(--font-mono);
+        }
+        .status-indicator {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 14px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--accent-green);
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .main-container { display: grid; grid-template-columns: 320px 1fr 360px; height: calc(100vh - 69px); }
+        .left-panel { background: var(--bg-secondary); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden; }
+        .panel-section { padding: 20px; border-bottom: 1px solid var(--border-color); }
+        .section-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-family: var(--font-mono); margin-bottom: 16px; }
+        .search-input {
+            width: 100%; padding: 14px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .search-input:focus { outline: none; border-color: var(--accent-primary); }
+        .btn-primary {
+            width: 100%; margin-top: 12px; padding: 14px;
+            background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-primary) 100%);
+            border: none; border-radius: 8px;
+            color: white; font-weight: 600; font-size: 13px;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-primary:hover { box-shadow: var(--glow-blue); }
+        .slider-header { display: flex; justify-content: space-between; margin-bottom: 14px; }
+        .slider-label { font-size: 12px; color: var(--text-secondary); }
+        .slider-value { font-size: 16px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-primary); }
+        .confidence-slider {
+            width: 100%; height: 6px;
+            -webkit-appearance: none;
+            background: linear-gradient(90deg, var(--accent-red) 0%, var(--accent-orange) 30%, var(--accent-yellow) 50%, var(--accent-green) 100%);
+            border-radius: 3px;
+        }
+        .confidence-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--accent-primary);
+        }
+        .confidence-zones { display: flex; justify-content: space-between; margin-top: 10px; font-size: 10px; font-family: var(--font-mono); }
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .action-btn {
+            padding: 14px 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            font-family: var(--font-mono);
+        }
+        .action-btn:hover { background: rgba(59, 130, 246, 0.1); border-color: var(--accent-primary); color: var(--accent-primary); }
+        .action-icon { font-size: 20px; }
+        .watchlist-section { flex: 1; overflow-y: auto; padding: 20px; }
+        .watchlist-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 16px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--accent-primary);
+            cursor: pointer;
+        }
+        .watchlist-item:hover { background: var(--bg-card-hover); }
+        .watchlist-item.alert { border-left-color: var(--accent-red); }
+        .watchlist-name { font-size: 13px; font-weight: 600; }
+        .watchlist-meta { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+        .status-tag { font-size: 10px; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-family: var(--font-mono); }
+        .status-tag.stable { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+        .status-tag.alert { background: rgba(220, 38, 38, 0.15); color: var(--accent-red); animation: blink 1.5s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .center-panel { background: var(--bg-primary); overflow-y: auto; padding: 24px; }
+        .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
+        .results-title { font-size: 18px; font-weight: 600; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1px; }
+        .results-count { color: var(--text-muted); font-size: 13px; }
+        .view-toggle { display: flex; background: var(--bg-card); border-radius: 6px; padding: 3px; border: 1px solid var(--border-color); }
+        .view-btn { padding: 8px 14px; background: none; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; border-radius: 4px; font-family: var(--font-mono); }
+        .view-btn.active { background: var(--accent-primary); color: white; }
+        .entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .entity-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .entity-card:hover { transform: translateY(-3px); box-shadow: var(--glow-blue); border-color: var(--accent-primary); }
+        .entity-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-primary); border-radius: 10px 10px 0 0; }
+        .entity-card.critical::before { background: var(--accent-red); }
+        .entity-card.warning::before { background: var(--accent-orange); }
+        .entity-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+        .entity-name { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+        .entity-type { font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); padding: 3px 8px; border-radius: 4px; font-family: var(--font-mono); }
+        .confidence-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; font-family: var(--font-mono); }
+        .conf-high { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .conf-med { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); border: 1px solid rgba(234, 179, 8, 0.3); }
+        .conf-low { background: rgba(220, 38, 38, 0.15); color: var(--accent-red); border: 1px solid rgba(220, 38, 38, 0.3); }
+        .entity-relations { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+        .relation-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 12px; color: var(--text-secondary); }
+        .relation-type { color: var(--accent-primary); font-weight: 600; min-width: 70px; font-family: var(--font-mono); font-size: 10px; }
+        .right-panel { background: var(--bg-secondary); border-left: 1px solid var(--border-color); overflow-y: auto; }
+        .detail-header { padding: 24px 20px; border-bottom: 1px solid var(--border-color); background: linear-gradient(135deg, rgba(30, 64, 175, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%); }
+        .detail-entity-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; font-family: var(--font-mono); }
+        .detail-meta { display: flex; gap: 16px; font-size: 12px; color: var(--text-muted); }
+        .detail-section { padding: 20px; border-bottom: 1px solid var(--border-color); }
+        .detail-section-title { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px; font-family: var(--font-mono); }
+        .risk-display { display: flex; align-items: center; gap: 20px; }
+        .gauge-circle { width: 90px; height: 90px; border-radius: 50%; background: conic-gradient(var(--accent-red) 0deg, var(--accent-red) calc(var(--risk) * 3.6deg), var(--bg-card) calc(var(--risk) * 3.6deg)); display: flex; align-items: center; justify-content: center; }
+        .gauge-inner { width: 70px; height: 70px; border-radius: 50%; background: var(--bg-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .gauge-value { font-size: 22px; font-weight: 700; font-family: var(--font-mono); }
+        .gauge-label { font-size: 9px; color: var(--text-muted); }
+        .risk-factors { flex: 1; }
+        .risk-factor { margin-bottom: 12px; }
+        .factor-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
+        .factor-name { color: var(--text-secondary); }
+        .factor-value { font-weight: 600; font-family: var(--font-mono); }
+        .factor-bar { height: 4px; background: var(--bg-card); border-radius: 2px; overflow: hidden; }
+        .factor-fill { height: 100%; border-radius: 2px; }
+        .source-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: var(--bg-card); border-radius: 8px; margin-bottom: 10px; cursor: pointer; border: 1px solid transparent; }
+        .source-item:hover { border-color: var(--accent-primary); }
+        .source-icon { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary)); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .source-info { flex: 1; }
+        .source-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+        .source-url { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .source-conf { font-size: 12px; font-weight: 600; color: var(--accent-green); font-family: var(--font-mono); }
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 14, 23, 0.95); display: none; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; gap: 24px; }
+        .loading-overlay.active { display: flex; }
+        .spinner { width: 50px; height: 50px; border: 3px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: var(--text-secondary); font-size: 14px; font-family: var(--font-mono); letter-spacing: 1px; }
+        .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 400px; color: var(--text-muted); text-align: center; }
+        .empty-icon { font-size: 56px; margin-bottom: 20px; opacity: 0.4; }
+        .empty-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; font-family: var(--font-mono); text-transform: uppercase; }
+        @media (max-width: 1200px) { .main-container { grid-template-columns: 280px 1fr; } .right-panel { display: none; } }
+        @media (max-width: 768px) { .main-container { grid-template-columns: 1fr; } .left-panel { display: none; } }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-emblem">V</div>
+            <div>
+                <div class="logo-title">VIDOCQ</div>
+                <div class="logo-subtitle">Agent de Renseignement Autonome</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="graph.html" style="color: var(--text-secondary); text-decoration: none; font-size: 13px;">Voir Graphe →</a>
+            <div class="classification-badge">CONFIDENTIEL</div>
+            <div class="status-indicator">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="api-status">CONNEXION...</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="left-panel">
+            <div class="panel-section">
+                <div class="section-title">Nouvelle Investigation</div>
+                <input type="text" class="search-input" id="search-input" placeholder="Entite cible...">
+                <button class="btn-primary" onclick="launchInvestigation()">Lancer Analyse</button>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">Filtre Confiance</div>
+                <div class="slider-header">
+                    <span class="slider-label">Seuil minimum</span>
+                    <span class="slider-value" id="confidence-value">0%</span>
+                </div>
+                <input type="range" class="confidence-slider" id="confidence-slider" min="0" max="100" value="0" oninput="updateConfidenceFilter(this.value)">
+                <div class="confidence-zones">
+                    <span style="color: var(--accent-red)">Quarantaine</span>
+                    <span style="color: var(--accent-yellow)">A Verifier</span>
+                    <span style="color: var(--accent-green)">Confirme</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">Outils Analytiques</div>
+                <div class="action-grid">
+                    <button class="action-btn" onclick="showRiskScoring()"><span class="action-icon">📊</span>Risk Score</button>
+                    <button class="action-btn" onclick="showWargaming()"><span class="action-icon">🎯</span>Wargame</button>
+                    <button class="action-btn" onclick="showGhostDetector()"><span class="action-icon">👻</span>Ghost Scan</button>
+                    <button class="action-btn" onclick="showOwnershipTrace()"><span class="action-icon">🔗</span>Trace UBO</button>
+                </div>
+            </div>
+
+            <div class="watchlist-section">
+                <div class="section-title">Surveillance Active</div>
+                <div id="watchlist-container"></div>
+            </div>
+        </div>
+
+        <div class="center-panel">
+            <div class="results-header">
+                <div>
+                    <span class="results-title">Resultats</span>
+                    <span class="results-count" id="results-count">- entites</span>
+                </div>
+                <div class="view-toggle">
+                    <button class="view-btn active" onclick="setView('cards', this)">Cartes</button>
+                    <button class="view-btn" onclick="setView('list', this)">Liste</button>
+                    <button class="view-btn" onclick="window.location.href='graph.html'">Graphe</button>
+                </div>
+            </div>
+            <div class="entity-grid" id="results-container">
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <div class="empty-title">Aucune investigation active</div>
+                    <div>Saisissez une entite cible pour demarrer</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel" id="detail-panel">
+            <div class="detail-header">
+                <div class="detail-entity-name" id="detail-name">Selection requise</div>
+                <div class="detail-meta">
+                    <span id="detail-type">-</span>
+                    <span id="detail-country">-</span>
+                </div>
+            </div>
+            <div class="detail-section">
+                <div class="detail-section-title">📊 Score de Risque</div>
+                <div class="risk-display">
+                    <div class="gauge-circle" id="risk-gauge" style="--risk: 0;">
+                        <div class="gauge-inner">
+                            <span class="gauge-value" id="risk-score">-</span>
+                            <span class="gauge-label">Score</span>
+                        </div>
+                    </div>
+                    <div class="risk-factors" id="risk-factors"></div>
+                </div>
+            </div>
+            <div class="detail-section">
+                <div class="detail-section-title">🔗 Relations</div>
+                <div id="relations-container"><p style="color:var(--text-muted);font-size:12px;">Selectionnez une entite</p></div>
+            </div>
+            <div class="detail-section">
+                <div class="detail-section-title">📎 Sources</div>
+                <div id="sources-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-text">ANALYSE EN COURS...</div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let currentConfidence = 0;
+        let isApiOnline = false;
+
+        // ========== INITIALIZATION ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            checkApiStatus();
+            loadWatchlist();
+            document.getElementById('search-input').addEventListener('keypress', e => {
+                if (e.key === 'Enter') launchInvestigation();
+            });
+        });
+
+        async function checkApiStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health/full`, { signal: AbortSignal.timeout(3000) });
+                if (response.ok) {
+                    const data = await response.json();
+                    isApiOnline = data.status === 'healthy';
+                    document.getElementById('api-status').textContent = 'SYSTEME ACTIF';
+                    document.getElementById('status-dot').style.background = 'var(--accent-green)';
+                }
+            } catch {
+                isApiOnline = false;
+                document.getElementById('api-status').textContent = 'MODE DEMO';
+                document.getElementById('status-dot').style.background = 'var(--accent-yellow)';
+            }
+        }
+
+        // ========== CONFIDENCE FILTER (Connected to Neo4j) ==========
+        async function updateConfidenceFilter(value) {
+            currentConfidence = parseInt(value);
+            document.getElementById('confidence-value').textContent = value + '%';
+            
+            // Re-fetch data with new confidence filter from Neo4j
+            if (document.getElementById('search-input').value.trim()) {
+                await fetchEntitiesFromNeo4j();
+            }
+        }
+
+        // ========== INVESTIGATION (Connected to Neo4j) ==========
+        async function launchInvestigation() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+
+            showLoading('INVESTIGATION: ' + query.toUpperCase());
+
+            try {
+                // Step 1: Launch discovery (triggers OSINT search)
+                if (isApiOnline) {
+                    await fetch(`${API_BASE}/discover/v2`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ entity: query, use_cache: true })
+                    });
+                }
+
+                // Step 2: Fetch entities from Neo4j with confidence filter
+                await fetchEntitiesFromNeo4j(query);
+
+            } catch (error) {
+                console.error('Investigation error:', error);
+                displayDemoResults(query);
+            }
+
+            hideLoading();
+        }
+
+        async function fetchEntitiesFromNeo4j(search = null) {
+            const searchValue = search || document.getElementById('search-input').value.trim();
+            const confidenceDecimal = currentConfidence / 100;
+
+            try {
+                const url = new URL(`${API_BASE}/graph/entities`);
+                url.searchParams.append('min_confidence', confidenceDecimal);
+                url.searchParams.append('limit', 50);
+                if (searchValue) url.searchParams.append('search', searchValue);
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API Error');
+
+                const data = await response.json();
+                
+                if (data.entities && data.entities.length > 0) {
+                    displayResults(data.entities);
+                    document.getElementById('results-count').textContent = 
+                        `${data.total} entites (confiance >= ${data.min_confidence_filter}%)`;
+                } else {
+                    displayDemoResults(searchValue);
+                }
+
+            } catch (error) {
+                console.error('Neo4j fetch error:', error);
+                displayDemoResults(searchValue);
+            }
+        }
+
+        function displayResults(entities) {
+            const container = document.getElementById('results-container');
+            container.innerHTML = entities.map(e => {
+                const riskClass = e.risk_level === 'HIGH' ? 'critical' : (e.confidence < 50 ? 'warning' : '');
+                return `
+                    <div class="entity-card ${riskClass}" data-entity='${JSON.stringify(e)}' onclick="showEntityDetail(this)">
+                        <div class="entity-header">
+                            <div>
+                                <div class="entity-name">${e.name}</div>
+                                <span class="entity-type">${e.type}</span>
+                            </div>
+                            <div class="confidence-badge ${getConfClass(e.confidence)}">${e.confidence}%</div>
+                        </div>
+                        <div class="entity-relations">
+                            ${(e.relations || []).map(r => `
+                                <div class="relation-item">
+                                    <span class="relation-type">${r.type}</span>
+                                    <span>→ ${r.target}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function displayDemoResults(query) {
+            const entities = [
+                { name: query || 'Entite Demo', type: 'ORGANIZATION', confidence: 92, risk_level: 'MEDIUM', country: 'France', relations: [{ type: 'SUPPLIES', target: 'Airbus' }, { type: 'LOCATED_IN', target: 'France' }] },
+                { name: 'Fournisseur Tier-1', type: 'ORGANIZATION', confidence: 78, risk_level: 'MEDIUM', country: 'Chine', relations: [{ type: 'SUPPLIES', target: query }] },
+                { name: 'Holding Caymans', type: 'SHELL_COMPANY', confidence: 35, risk_level: 'HIGH', country: 'Cayman Islands', relations: [{ type: 'OWNS', target: 'Fournisseur Tier-1' }] },
+                { name: 'CEO Jean Dupont', type: 'PERSON', confidence: 68, risk_level: 'MEDIUM', relations: [{ type: 'LEADS', target: query }] },
+                { name: 'Source Forum', type: 'CLAIM', confidence: 22, risk_level: 'HIGH', relations: [{ type: 'MENTIONS', target: query }] },
+            ].filter(e => e.confidence >= currentConfidence);
+            displayResults(entities);
+            document.getElementById('results-count').textContent = `${entities.length} entites (demo, confiance >= ${currentConfidence}%)`;
+        }
+
+        function getConfClass(c) {
+            if (c >= 80) return 'conf-high';
+            if (c >= 50) return 'conf-med';
+            return 'conf-low';
+        }
+
+        // ========== ENTITY DETAIL (Connected to API) ==========
+        async function showEntityDetail(element) {
+            const entity = JSON.parse(element.dataset.entity);
+            document.getElementById('detail-name').textContent = entity.name;
+            document.getElementById('detail-type').textContent = entity.type;
+            document.getElementById('detail-country').textContent = entity.country || '-';
+
+            // Fetch risk score from API
+            try {
+                if (isApiOnline) {
+                    const response = await fetch(`${API_BASE}/risk/score`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ entity_name: entity.name, locations: entity.country ? [entity.country] : [] })
+                    });
+                    const riskData = await response.json();
+                    updateRiskDisplay(riskData);
+                } else {
+                    updateRiskDisplay({ overall_score: 65, components: { geopolitical: 70, sanctions: 45, esg: 30, concentration: 55, depth: 40 } });
+                }
+            } catch {
+                updateRiskDisplay({ overall_score: 50, components: { geopolitical: 50, sanctions: 30, esg: 25, concentration: 40, depth: 35 } });
+            }
+
+            // Display relations
+            const relHtml = (entity.relations || []).map(r => `
+                <div class="relation-item">
+                    <span class="relation-type">${r.type}</span>
+                    <span>→ ${r.target}</span>
+                    ${r.source_url ? `<a href="${r.source_url}" target="_blank" style="font-size:10px;color:var(--accent-primary);">📎</a>` : ''}
+                </div>
+            `).join('') || '<p style="color:var(--text-muted);font-size:12px;">Aucune relation</p>';
+            document.getElementById('relations-container').innerHTML = relHtml;
+        }
+
+        function updateRiskDisplay(data) {
+            const score = Math.round(data.overall_score || 0);
+            document.getElementById('risk-gauge').style.setProperty('--risk', score);
+            document.getElementById('risk-score').textContent = score;
+            
+            const factors = data.components || {};
+            document.getElementById('risk-factors').innerHTML = Object.entries(factors).map(([name, value]) => `
+                <div class="risk-factor">
+                    <div class="factor-header">
+                        <span class="factor-name">${name.charAt(0).toUpperCase() + name.slice(1)}</span>
+                        <span class="factor-value">${Math.round(value)}%</span>
+                    </div>
+                    <div class="factor-bar">
+                        <div class="factor-fill" style="width: ${value}%; background: ${value > 70 ? 'var(--accent-red)' : value > 40 ? 'var(--accent-yellow)' : 'var(--accent-green)'};"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ========== WATCHLIST (Connected to API) ==========
+        async function loadWatchlist() {
+            const container = document.getElementById('watchlist-container');
+            try {
+                if (isApiOnline) {
+                    const response = await fetch(`${API_BASE}/watchlist`);
+                    const data = await response.json();
+                    if (data.entities && data.entities.length > 0) {
+                        container.innerHTML = data.entities.map(e => `
+                            <div class="watchlist-item ${e.status === 'alert' ? 'alert' : ''}" onclick="selectWatchlistEntity('${e.entity_name}')">
+                                <div>
+                                    <div class="watchlist-name">${e.entity_name}</div>
+                                    <div class="watchlist-meta">${e.entity_type} • ${e.frequency}</div>
+                                </div>
+                                <span class="status-tag ${e.status === 'active' ? 'stable' : 'alert'}">${e.status}</span>
+                            </div>
+                        `).join('');
+                        return;
+                    }
+                }
+            } catch {}
+            
+            // Demo watchlist
+            container.innerHTML = `
+                <div class="watchlist-item alert" onclick="selectWatchlistEntity('Gazprom')">
+                    <div><div class="watchlist-name">Gazprom</div><div class="watchlist-meta">ORG • Quotidien</div></div>
+                    <span class="status-tag alert">Alerte</span>
+                </div>
+                <div class="watchlist-item" onclick="selectWatchlistEntity('TotalEnergies')">
+                    <div><div class="watchlist-name">TotalEnergies</div><div class="watchlist-meta">ORG • Quotidien</div></div>
+                    <span class="status-tag stable">Stable</span>
+                </div>
+            `;
+        }
+
+        function selectWatchlistEntity(name) {
+            document.getElementById('search-input').value = name;
+            launchInvestigation();
+        }
+
+        // ========== TOOLS (Connected to API) ==========
+        async function showRiskScoring() {
+            const query = document.getElementById('search-input').value.trim() || 'Entite';
+            showLoading('CALCUL SCORE RISQUE...');
+            try {
+                const response = await fetch(`${API_BASE}/risk/score`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entity_name: query, locations: [] })
+                });
+                const data = await response.json();
+                hideLoading();
+                alert(`SCORE DE RISQUE: ${query}\n\nScore Global: ${data.overall_score.toFixed(1)}/100 (${data.risk_level})\n\nGeopolitique: ${data.components.geopolitical.toFixed(0)}%\nSanctions: ${data.components.sanctions.toFixed(0)}%\nESG: ${data.components.esg.toFixed(0)}%`);
+            } catch {
+                hideLoading();
+                alert(`SCORE DE RISQUE (Demo): ${query}\n\nScore: 65/100 (MEDIUM)`);
+            }
+        }
+
+        async function showWargaming() {
+            const trigger = document.getElementById('search-input').value.trim() || 'TSMC';
+            showLoading('SIMULATION WARGAME...');
+            try {
+                const response = await fetch(`${API_BASE}/brain/wargame/${encodeURIComponent(trigger)}`);
+                const data = await response.json();
+                hideLoading();
+                alert(`WARGAMING: ${trigger}\n\nImpact: ${data.total_impacted || 'N/A'} entites\nScore Disruption: ${data.disruption_score || 'N/A'}%\n\n${data.recommendations ? data.recommendations.join('\n') : 'Simulation terminee'}`);
+            } catch {
+                hideLoading();
+                alert(`WARGAMING (Demo): Scenario "${trigger}"\n\nImpact: 2847 entreprises\nDelai rupture: 3-4 semaines\nImpact PIB: -2.3%`);
+            }
+        }
+
+        async function showGhostDetector() {
+            const target = document.getElementById('search-input').value.trim() || 'Cible';
+            showLoading('ANALYSE GHOST DETECTOR...');
+            try {
+                const response = await fetch(`${API_BASE}/brain/ghost-scan/${encodeURIComponent(target)}`);
+                const data = await response.json();
+                hideLoading();
+                const anomalies = data.anomalies || [];
+                alert(`GHOST DETECTOR: ${target}\n\nAnomalies: ${anomalies.length}\n${anomalies.join('\n') || 'Aucune anomalie detectee'}\n\nScore Confiance Identite: ${data.identity_confidence || 'N/A'}%`);
+            } catch {
+                hideLoading();
+                alert(`GHOST DETECTOR (Demo): ${target}\n\n✅ Profil LinkedIn: VERIFIE\n✅ Publications: INDEXEES\n✅ Historique: COHERENT\n\nConfiance: 94%`);
+            }
+        }
+
+        async function showOwnershipTrace() {
+            const entity = document.getElementById('search-input').value.trim() || 'SocieteX';
+            showLoading('TRACE BENEFICIAIRE EFFECTIF...');
+            try {
+                const response = await fetch(`${API_BASE}/brain/trace-ownership/${encodeURIComponent(entity)}`);
+                const data = await response.json();
+                hideLoading();
+                const flags = data.red_flags || [];
+                const chain = (data.ownership_chains || []).slice(0, 1);
+                alert(`TRACE UBO: ${entity}\n\nProfondeur: ${data.max_depth || 0} niveaux\nRisk Score: ${data.risk_score || 0}\n\nRed Flags:\n${flags.join('\n') || 'Aucun'}\n\nRecommandation: ${data.recommendation || 'Standard'}`);
+            } catch {
+                hideLoading();
+                alert(`TRACE UBO (Demo): ${entity}\n\nChaine: ${entity} → Holding (LUX) → SPV (Caymans) → ???\n\nRed Flags:\n• 3+ niveaux holdings\n• Paradis fiscaux\n\nRisque: ELEVE`);
+            }
+        }
+
+        function setView(view, btn) {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function showLoading(text) {
+            document.getElementById('loading-text').textContent = text;
+            document.getElementById('loading').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('active');
+        }
+    </script>
+</body>
+</html>

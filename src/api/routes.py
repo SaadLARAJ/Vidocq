@@ -590,6 +590,96 @@ async def get_geo_graph(graph_store: GraphStore = Depends(get_graph_store)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/graph/entities")
+async def get_entities_with_relations(
+    graph_store: GraphStore = Depends(get_graph_store),
+    min_confidence: float = Query(default=0.0, ge=0.0, le=1.0, description="Minimum confidence threshold"),
+    entity_type: Optional[str] = Query(default=None, description="Filter by entity type"),
+    search: Optional[str] = Query(default=None, description="Search by name"),
+    limit: int = Query(default=50, le=200)
+):
+    """
+    Get entities with their relations, filtered by confidence level.
+    Used by dashboard for real-time Neo4j queries.
+    """
+    # Build dynamic query based on filters
+    where_clauses = []
+    params = {"limit": limit, "min_confidence": min_confidence}
+    
+    if search:
+        where_clauses.append("toLower(e.canonical_name) CONTAINS toLower($search)")
+        params["search"] = search
+    
+    if entity_type:
+        where_clauses.append("$entity_type IN labels(e)")
+        params["entity_type"] = entity_type
+    
+    where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
+    query = f"""
+    MATCH (e:Entity)
+    {where_clause}
+    WITH e LIMIT $limit
+    OPTIONAL MATCH (e)-[r]->(target:Entity)
+    WHERE r.confidence_score IS NULL OR r.confidence_score >= $min_confidence
+    RETURN 
+        e.id as id,
+        e.canonical_name as name,
+        labels(e)[1] as type,
+        e.country as country,
+        e.confidence_score as confidence,
+        collect(DISTINCT {{
+            type: type(r),
+            target: target.canonical_name,
+            target_type: labels(target)[1],
+            confidence: r.confidence_score,
+            source_url: r.source_url
+        }}) as relations
+    """
+    
+    try:
+        entities = []
+        with graph_store.driver.session() as session:
+            result = session.run(query, **params)
+            
+            for record in result:
+                # Filter out null relations
+                relations = [r for r in record["relations"] if r["target"] is not None]
+                
+                # Filter relations by confidence
+                if min_confidence > 0:
+                    relations = [r for r in relations if (r["confidence"] or 1.0) >= min_confidence]
+                
+                entity = {
+                    "id": record["id"],
+                    "name": record["name"],
+                    "type": record["type"] or "Entity",
+                    "country": record["country"],
+                    "confidence": int((record["confidence"] or 0.8) * 100),
+                    "risk_level": "HIGH" if record["country"] and record["country"].upper() in ["RUSSIA", "CHINA", "IRAN"] else "MEDIUM",
+                    "relations": [
+                        {
+                            "type": r["type"],
+                            "target": r["target"],
+                            "confidence": int((r["confidence"] or 0.7) * 100),
+                            "source_url": r["source_url"]
+                        }
+                        for r in relations[:5]  # Limit to 5 relations per entity
+                    ]
+                }
+                entities.append(entity)
+        
+        return {
+            "total": len(entities),
+            "min_confidence_filter": int(min_confidence * 100),
+            "entities": entities
+        }
+        
+    except Exception as e:
+        logger.error("entities_query_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # === MAGIC SWITCH: VISIBILITY CONTROL (CIA/OTAN Style) ===
 
 @router.get("/graph/visible")
@@ -1635,3 +1725,295 @@ async def full_health_check(
         health["components"]["gemini"] = {"status": "unknown"}
     
     return health
+
+
+# ============================================================================
+# WATCHLIST ENDPOINTS (Continuous Monitoring)
+# ============================================================================
+
+class WatchlistAddRequest(BaseModel):
+    entity_name: str
+    entity_type: str = "ORGANIZATION"
+    alert_types: List[str] = ["news", "sanctions", "ownership_change", "scandal"]
+    frequency: str = "daily"
+
+
+@router.post("/watchlist/add")
+async def add_to_watchlist(request: WatchlistAddRequest):
+    """Add an entity to the watchlist for continuous monitoring."""
+    try:
+        from src.core.watchlist import get_watchlist_manager
+        manager = get_watchlist_manager()
+        
+        entry = manager.add_entity(
+            entity_name=request.entity_name,
+            entity_type=request.entity_type,
+            alert_types=request.alert_types,
+            frequency=request.frequency
+        )
+        
+        return {
+            "status": "watching",
+            "entity": entry.entity_name,
+            "frequency": entry.frequency,
+            "next_scan": entry.next_scan,
+            "alert_types": entry.alert_types
+        }
+    except Exception as e:
+        logger.error("watchlist_add_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/watchlist/remove/{entity_name}")
+async def remove_from_watchlist(entity_name: str):
+    """Remove an entity from the watchlist."""
+    try:
+        from src.core.watchlist import get_watchlist_manager
+        manager = get_watchlist_manager()
+        
+        removed = manager.remove_entity(entity_name)
+        return {"removed": removed, "entity": entity_name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/watchlist")
+async def get_watchlist():
+    """Get all entities currently being watched."""
+    try:
+        from src.core.watchlist import get_watchlist_manager
+        manager = get_watchlist_manager()
+        
+        entries = manager.get_watchlist()
+        return {
+            "total": len(entries),
+            "entities": [e.to_dict() for e in entries]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/watchlist/alerts")
+async def get_watchlist_alerts(
+    entity_name: str = None,
+    unacknowledged_only: bool = False,
+    limit: int = 100
+):
+    """Get alerts from the watchlist system."""
+    try:
+        from src.core.watchlist import get_watchlist_manager
+        manager = get_watchlist_manager()
+        
+        alerts = manager.get_alerts(
+            entity_name=entity_name,
+            unacknowledged_only=unacknowledged_only,
+            limit=limit
+        )
+        
+        return {
+            "total": len(alerts),
+            "alerts": [a.to_dict() for a in alerts]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/watchlist/alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(alert_id: str):
+    """Acknowledge an alert."""
+    try:
+        from src.core.watchlist import get_watchlist_manager
+        manager = get_watchlist_manager()
+        
+        success = manager.acknowledge_alert(alert_id)
+        return {"acknowledged": success, "alert_id": alert_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/watchlist/stats")
+async def get_watchlist_stats():
+    """Get watchlist statistics."""
+    try:
+        from src.core.watchlist import get_watchlist_manager
+        manager = get_watchlist_manager()
+        return manager.get_stats()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# CROSS-CLIENT ALERTS (Anonymous Intelligence Sharing)
+# ============================================================================
+
+class FlagEntityRequest(BaseModel):
+    entity_name: str
+    flag_type: str = "RISK"
+    severity: str = "MEDIUM"
+    details: str = ""
+
+
+@router.post("/alerts/flag")
+async def flag_entity_for_network(request: FlagEntityRequest):
+    """Flag an entity as risky (shared anonymously with other Vidocq users)."""
+    try:
+        from src.core.cross_client_alerts import get_cross_client_alerts
+        system = get_cross_client_alerts()
+        
+        # Use a default client ID for now (would be from auth in production)
+        client_id = "default_client"
+        
+        flag = system.flag_entity(
+            client_id=client_id,
+            entity_name=request.entity_name,
+            flag_type=request.flag_type,
+            severity=request.severity,
+            details=request.details
+        )
+        
+        return {
+            "status": "flagged",
+            "entity": request.entity_name,
+            "flag_type": request.flag_type,
+            "severity": request.severity,
+            "message": "This flag is now shared anonymously with other Vidocq users"
+        }
+    except Exception as e:
+        logger.error("flag_entity_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/check/{entity_name}")
+async def check_entity_flags(entity_name: str):
+    """Check if an entity has been flagged by other Vidocq users."""
+    try:
+        from src.core.cross_client_alerts import get_cross_client_alerts
+        system = get_cross_client_alerts()
+        
+        flags = system.check_entity_flags(entity_name, exclude_client="default_client")
+        
+        return {
+            "entity": entity_name,
+            "has_flags": len(flags) > 0,
+            "flag_count": len(flags),
+            "flags": flags
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/network")
+async def get_network_alerts():
+    """Get all active flags for entities in your network."""
+    try:
+        from src.core.cross_client_alerts import get_cross_client_alerts
+        system = get_cross_client_alerts()
+        
+        alerts = system.get_alerts_for_client("default_client")
+        
+        return {
+            "total": len(alerts),
+            "alerts": alerts
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/alerts/stats")
+async def get_cross_client_stats():
+    """Get cross-client alert system statistics."""
+    try:
+        from src.core.cross_client_alerts import get_cross_client_alerts
+        system = get_cross_client_alerts()
+        return system.get_stats()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# OWNERSHIP TRACING (Holdings Chain Detection)
+# ============================================================================
+
+@router.get("/brain/trace-ownership/{entity_name}")
+async def trace_ownership_chain(
+    entity_name: str,
+    max_depth: int = 10,
+    graph_store: GraphStore = Depends(get_graph_store)
+):
+    """
+    Trace the ownership chain of an entity to find ultimate beneficial owners.
+    Detects holding-in-holding-in-holding structures.
+    """
+    try:
+        # Query to trace ownership chain
+        query = """
+        MATCH path = (target:Entity {name: $name})-[:OWNED_BY|SUBSIDIARY_OF|CONTROLLED_BY*1..10]->(owner)
+        RETURN 
+            [node in nodes(path) | {
+                name: node.name, 
+                type: labels(node)[0],
+                country: node.country
+            }] as chain,
+            length(path) as depth
+        ORDER BY depth DESC
+        LIMIT 20
+        """
+        
+        with graph_store.driver.session() as session:
+            result = session.run(query, name=entity_name)
+            chains = []
+            
+            for record in result:
+                chain_data = record["chain"]
+                chains.append({
+                    "depth": record["depth"],
+                    "chain": chain_data
+                })
+        
+        # Analyze red flags
+        red_flags = []
+        all_countries = set()
+        max_depth_found = 0
+        
+        for chain in chains:
+            max_depth_found = max(max_depth_found, chain["depth"])
+            for node in chain["chain"]:
+                if node.get("country"):
+                    all_countries.add(node["country"].upper())
+        
+        # Detect suspicious patterns
+        tax_havens = {"CAYMAN ISLANDS", "BVI", "BRITISH VIRGIN ISLANDS", "LUXEMBOURG", 
+                      "DELAWARE", "PANAMA", "BERMUDA", "JERSEY", "GUERNSEY", "ISLE OF MAN"}
+        high_risk = {"RUSSIA", "CHINA", "IRAN", "NORTH KOREA", "BELARUS"}
+        
+        havens_found = all_countries & tax_havens
+        risks_found = all_countries & high_risk
+        
+        if max_depth_found >= 5:
+            red_flags.append(f"{max_depth_found} levels of holdings = intentional opacity")
+        if havens_found:
+            red_flags.append(f"Tax haven jurisdictions: {', '.join(havens_found)}")
+        if risks_found:
+            red_flags.append(f"High-risk countries: {', '.join(risks_found)}")
+        
+        # Calculate risk score
+        risk_score = min(100, 20 * max_depth_found + 15 * len(havens_found) + 25 * len(risks_found))
+        
+        return {
+            "target": entity_name,
+            "ownership_chains": chains,
+            "max_depth": max_depth_found,
+            "countries_detected": list(all_countries),
+            "red_flags": red_flags,
+            "risk_score": risk_score,
+            "recommendation": "Enhanced due diligence required" if risk_score > 50 else "Standard review"
+        }
+        
+    except Exception as e:
+        logger.error("ownership_trace_error", entity=entity_name, error=str(e))
+        return {
+            "target": entity_name,
+            "ownership_chains": [],
+            "error": str(e),
+            "note": "No ownership data found or graph query failed"
+        }
