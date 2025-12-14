@@ -36,7 +36,7 @@ class Claim(BaseModel):
     source_url: str
     subject_id: str
     # Use the imported list to define allowed relations
-    relation_type: Literal[*ALLOWED_RELATIONS]
+    relation_type: str
     object_id: str
     confidence_score: float = Field(description="Calculé via ConfidenceCalculator")
     evidence_snippet: str = Field(description="Extrait de texte prouvant le lien")

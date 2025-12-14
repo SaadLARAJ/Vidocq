@@ -53,7 +53,7 @@ class BaseTask(Task):
     retry_backoff_max=60,
     max_retries=3
 )
-def ingest_url(self, url: str, source_domain: str):
+def ingest_url(self, url: str, source_domain: str, depth: int = 0):
     """
     Ingest a URL: Fetch -> Parse -> Chunk -> (Next: Extract).
     """
@@ -85,6 +85,6 @@ def ingest_url(self, url: str, source_domain: str):
     # Trigger extraction task for each chunk
     from src.pipeline.tasks import extract_claims
     for chunk in chunks:
-        extract_claims.delay(text=chunk, source_domain=source_domain, source_id=str(doc.id))
+        extract_claims.delay(text=chunk, source_domain=source_domain, source_id=str(doc.id), depth=depth)
     
     return {"doc_id": str(doc.id), "chunks": len(chunks)}

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o"
     
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-1.5-pro-001"
+    GEMINI_MODEL: str = "gemini-1.5-flash"
 
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"

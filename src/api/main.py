@@ -12,6 +12,7 @@ app = FastAPI(
 )
 
 # CORS
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +22,12 @@ app.add_middleware(
 )
 
 # Include Routes
-app.include_router(router, prefix="/api/v1")
+# Include Routes
+app.include_router(router)
+
+@app.get("/")
+async def root():
+    return {"message": "ShadowMap API is Online", "docs": "/docs", "war_room_data": "/graph/geo"}
 
 @app.on_event("startup")
 async def startup_event():
