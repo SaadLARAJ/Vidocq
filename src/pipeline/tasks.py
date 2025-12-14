@@ -15,7 +15,7 @@ def generate_uuid_from_string(val: str) -> str:
     return str(uuid.UUID(hex=hex_string))
 
 @shared_task(name="src.pipeline.tasks.extract_claims", bind=True, max_retries=3)
-def extract_claims(self, text: str, source_domain: str, source_id: str, depth: int = 0):
+def extract_claims(self, text: str, source_domain: str, source_id: str, source_url: str = "", depth: int = 0):
     """
     Task to extract information from text using Gemini and save to storage.
     """
@@ -24,14 +24,106 @@ def extract_claims(self, text: str, source_domain: str, source_id: str, depth: i
     try:
         # 1. Extract
         extractor = Extractor()
-        data = extractor.extract(text=text, source_domain=source_domain)
+        data = extractor.extract(text=text, source_domain=source_domain, source_url=source_url)
         
         entities = data.get("entities", [])
         claims = data.get("claims", [])
         
         logger.info("extraction_success", entities=len(entities), claims=len(claims))
         
-        # 2. Save to Graph (Neo4j)
+        from src.pipeline.verification import apply_verification_to_extraction
+        entities, claims, verification_summary = apply_verification_to_extraction(entities, claims)
+        logger.info("verification_applied", **verification_summary)
+        
+        # ============================================
+        # 2.5 SOFT-FILTERING (CIA/OTAN Style Quarantine)
+        # "Raw Intelligence Never Dies" - We NEVER delete data
+        # Instead, we TAG it with visibility status
+        # ============================================
+        
+        # Apply visibility tagging based on confidence + relevance
+        try:
+            from src.pipeline.relevance_filter import RelevanceFilter, MissionType
+            import asyncio
+            
+            relevance_filter = RelevanceFilter(mission_type=MissionType.SUPPLY_CHAIN)
+            
+            # Evaluate each claim and assign visibility status
+            quarantine_count = 0
+            visible_count = 0
+            
+            for claim in claims:
+                confidence = getattr(claim, 'confidence_score', 0.5)
+                
+                # Get relevance decision (but we don't delete based on it)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                decision = loop.run_until_complete(relevance_filter.evaluate(
+                    source_entity=getattr(claim, 'subject', ''),
+                    relation=getattr(claim, 'predicate', ''),
+                    target_entity=getattr(claim, 'object', ''),
+                    context=getattr(claim, 'source_text', ''),
+                    confidence=confidence
+                ))
+                loop.close()
+                
+                # Combined score
+                combined_score = (confidence + decision.relevance_score) / 2
+                
+                # === THE TAGGING STRATEGY (Never Delete) ===
+                # Zone Verte: Confirmé (score >= 0.8)
+                # Zone Orange: Non-vérifié (0.5 <= score < 0.8)  
+                # Zone Grise: Quarantaine (score < 0.5)
+                
+                if combined_score >= 0.8:
+                    claim.visibility_status = "CONFIRMED"      # Zone Verte
+                    claim.visibility = "VISIBLE"
+                    visible_count += 1
+                elif combined_score >= 0.5:
+                    claim.visibility_status = "UNVERIFIED"     # Zone Orange
+                    claim.visibility = "VISIBLE"
+                    visible_count += 1
+                else:
+                    claim.visibility_status = "QUARANTINE"     # Zone Grise
+                    claim.visibility = "HIDDEN"
+                    quarantine_count += 1
+                
+                # Store the score for later analysis
+                claim.combined_relevance_score = combined_score
+                claim.relevance_reason = decision.reason
+            
+            # Same for entities
+            for entity in entities:
+                confidence = getattr(entity, 'confidence_score', 0.7)
+                if confidence >= 0.7:
+                    entity.visibility_status = "CONFIRMED"
+                    entity.visibility = "VISIBLE"
+                elif confidence >= 0.4:
+                    entity.visibility_status = "UNVERIFIED"
+                    entity.visibility = "VISIBLE"
+                else:
+                    entity.visibility_status = "QUARANTINE"
+                    entity.visibility = "HIDDEN"
+            
+            logger.info(
+                "soft_filter_applied",
+                total_claims=len(claims),
+                visible=visible_count,
+                quarantined=quarantine_count,
+                note="NO DATA DELETED - All saved with visibility tags"
+            )
+            
+        except Exception as filter_err:
+            logger.warning("soft_filter_skipped", error=str(filter_err))
+            # If filter fails, mark everything as VISIBLE (safe default)
+            for claim in claims:
+                claim.visibility_status = "UNVERIFIED"
+                claim.visibility = "VISIBLE"
+            for entity in entities:
+                entity.visibility_status = "UNVERIFIED"
+                entity.visibility = "VISIBLE"
+        
+        # 3. Save to Graph (Neo4j) - SAVE EVERYTHING (Quarantined + Visible)
         graph_store = GraphStore()
         graph_store.merge_entities_batch(entities)
         graph_store.merge_claims_batch(claims)
@@ -80,10 +172,11 @@ def extract_claims(self, text: str, source_domain: str, source_id: str, depth: i
         
         for entity in entities:
             if entity.entity_type == "ORGANIZATION":
-                logger.info("triggering_discovery", entity=entity.canonical_name, depth=depth)
-                # We trigger this synchronously here, but in production this should be a separate task
-                # to avoid blocking the worker. For the prototype, it's fine as it spawns async ingest tasks.
-                discovery.discover_and_loop(entity.canonical_name, current_depth=depth)
+                logger.info("triggering_discovery_async", entity=entity.canonical_name, depth=depth)
+                # Async trigger to keep workers moving
+                # Avoid circular import at top level
+                from src.ingestion.tasks import launch_discovery_task
+                launch_discovery_task.delay(entity.canonical_name, depth=depth)
 
         return {"features_extracted": len(entities) + len(claims)}
 

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidocq - Intelligence Autonome</title>
+    
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">V</div>
+                <h1>VIDOCQ</h1>
+                <span class="tagline">Intelligence Autonome</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn-icon" id="btn-stats" title="Statistiques">📊</button>
+                <button class="btn-icon" id="btn-report" title="Rapport">📄</button>
+            </div>
+        </header>
+
+        <!-- Main -->
+        <main class="main-content">
+            <!-- Chat -->
+            <div class="chat-panel">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message assistant">
+                        <div class="message-avatar">V</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-author">Vidocq</span>
+                            </div>
+                            <div class="message-text">
+                                <p>Bonjour. Je suis <strong>Vidocq</strong>, votre agent d'investigation autonome.</p>
+                                <p>Donnez-moi le nom d'une entreprise, d'une personne ou d'une organisation à investiguer.</p>
+                                <p>Je vais automatiquement :</p>
+                                <p>• Rechercher des sources OSINT sur le web<br>
+                                   • Extraire les entités et leurs connexions<br>
+                                   • Vérifier les informations contre des bases de données<br>
+                                   • Générer un rapport d'intelligence</p>
+                                <span class="hint">💡 Essayez : "Gazprom", "BlackRock", "RT News"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input -->
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <textarea id="user-input" placeholder="Entrez une cible à investiguer..." rows="1"></textarea>
+                        <button id="send-btn" class="send-button">↵</button>
+                    </div>
+                    <div class="input-hint">Entrée pour envoyer</div>
+                </div>
+            </div>
+
+            <!-- Side Panel -->
+            <div class="side-panel" id="side-panel">
+                <div class="side-panel-header">
+                    <h3>Détails</h3>
+                    <button class="btn-close" id="close-panel">×</button>
+                </div>
+                <div class="side-panel-content" id="side-panel-content">
+                    <div class="empty-state">
+                        <span class="empty-icon">🔍</span>
+                        <p>Lancez une investigation pour voir les résultats.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Status -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <span class="status-indicator online"></span>
+                <span id="connection-status">Connecté</span>
+            </div>
+            <div class="status-right">
+                <span id="entity-count">0 entités</span>
+                <span class="separator">•</span>
+                <span id="relation-count">0 relations</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="report-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Rapport d'Intelligence</h2>
+                <button class="btn-close" id="close-modal">×</button>
+            </div>
+            <div class="modal-body" id="report-content"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="close-report">Fermer</button>
+                <button class="btn-primary" id="print-report">Télécharger PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

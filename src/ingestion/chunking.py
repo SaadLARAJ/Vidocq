@@ -7,7 +7,7 @@ class SemanticChunker:
     Simple implementation for Phase 1: Split by paragraphs/newlines with overlap.
     """
     
-    def __init__(self, chunk_size: int = 500000, overlap: int = 2000):
+    def __init__(self, chunk_size: int = 4000, overlap: int = 500):
         self.chunk_size = chunk_size
         self.overlap = overlap
 

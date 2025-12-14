@@ -1,73 +1,128 @@
+# VIDOCQ - Docker Compose Configuration
+# Start all services: docker-compose up -d
+
 version: '3.8'
 
 services:
-  neo4j:
-    image: neo4j:5.15.0
-    container_name: shadowmap_neo4j
+  # ===========================================
+  # VIDOCQ API (FastAPI)
+  # ===========================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vidocq-api
     ports:
-      - "7474:7474" # HTTP
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-vidocq_secure_2024}
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - ENABLE_PREMIUM_SOURCES=${ENABLE_PREMIUM_SOURCES:-false}
+    depends_on:
+      - neo4j
+      - redis
+      - qdrant
+    volumes:
+      - ./reports:/app/reports
+      - ./frontend:/app/frontend
+    networks:
+      - vidocq-network
+    restart: unless-stopped
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+
+  # ===========================================
+  # CELERY WORKER (Background Tasks)
+  # ===========================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vidocq-worker
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-vidocq_secure_2024}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      - neo4j
+      - redis
+    networks:
+      - vidocq-network
+    restart: unless-stopped
+    command: celery -A src.ingestion.tasks worker -Q celery,parse_queue --loglevel=info -P solo
+
+  # ===========================================
+  # NEO4J (Knowledge Graph Database)
+  # ===========================================
+  neo4j:
+    image: neo4j:5-community
+    container_name: vidocq-neo4j
+    ports:
+      - "7474:7474" # HTTP Browser
       - "7687:7687" # Bolt
     environment:
-      - NEO4J_AUTH=neo4j/password
-      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
-      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
-      - NEO4J_server_memory_heap_initial__size=1G
-      - NEO4J_server_memory_heap_max__size=2G
-      - NEO4J_server_memory_pagecache_size=1G
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-vidocq_secure_2024}
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
     volumes:
       - neo4j_data:/data
-    healthcheck:
-      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - neo4j_logs:/logs
+    networks:
+      - vidocq-network
+    restart: unless-stopped
 
-  qdrant:
-    image: qdrant/qdrant:v1.7.0
-    container_name: shadowmap_qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:6333/readyz || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: shadowmap_postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=shadowmap
-      - POSTGRES_PASSWORD=shadowmap
-      - POSTGRES_DB=shadowmap_audit
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U shadowmap -d shadowmap_audit" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+  # ===========================================
+  # REDIS (Message Broker + Cache)
+  # ===========================================
   redis:
-    image: redis:7.2-alpine
-    command: redis-server --requirepass shadowmap_redis_2024
-    container_name: shadowmap_redis
+    image: redis:7-alpine
+    container_name: vidocq-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    networks:
+      - vidocq-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
 
+  # ===========================================
+  # QDRANT (Vector Database)
+  # ===========================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: vidocq-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - vidocq-network
+    restart: unless-stopped
+
+# ===========================================
+# VOLUMES
+# ===========================================
 volumes:
   neo4j_data:
-  qdrant_data:
-  postgres_data:
+  neo4j_logs:
   redis_data:
+  qdrant_data:
+
+    # ===========================================
+    # NETWORK
+    # ===========================================
+networks:
+  vidocq-network:
+    driver: bridge

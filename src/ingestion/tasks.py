@@ -62,7 +62,14 @@ def ingest_url(self, url: str, source_domain: str, depth: int = 0):
     # 1. Fetch with Stealth
     with StealthSession() as session:
         response = session.get(url)
-        html_content = response.text
+        content_type = response.headers.get("Content-Type", "").lower()
+        
+        if "pdf" in content_type:
+            from src.ingestion.pdf_parser import PDFParser
+            html_content = PDFParser.parse_pdf(response.content)
+            logger.info("pdf_ingestion", url=url, type="pdf")
+        else:
+            html_content = response.text
 
     # 2. Parse
     clean_text = ContentParser.parse_html(html_content)
@@ -85,6 +92,57 @@ def ingest_url(self, url: str, source_domain: str, depth: int = 0):
     # Trigger extraction task for each chunk
     from src.pipeline.tasks import extract_claims
     for chunk in chunks:
-        extract_claims.delay(text=chunk, source_domain=source_domain, source_id=str(doc.id), depth=depth)
+        extract_claims.delay(text=chunk, source_domain=source_domain, source_id=str(doc.id), source_url=url, depth=depth)
     
     return {"doc_id": str(doc.id), "chunks": len(chunks)}
+
+@celery_app.task(bind=True, base=BaseTask)
+def launch_discovery_task(self, entity_name: str, depth: int = 0, use_v2: bool = True):
+    """
+    Launch the Discovery Engine in a background worker.
+    
+    Args:
+        entity_name: Entity to investigate
+        depth: Current recursion depth
+        use_v2: Use enhanced v2 engine (with caching and parallel search)
+    """
+    logger.info("celery_discovery_started", entity=entity_name, v2=use_v2)
+    
+    if use_v2:
+        try:
+            from src.pipeline.discovery_v2 import DiscoveryEngineV2
+            engine = DiscoveryEngineV2(use_cache=True)
+            result = engine.discover_and_ingest(entity_name, depth)
+            return {
+                "status": "completed", 
+                "entity": entity_name,
+                "urls_found": result.get("url_count", 0),
+                "cached": result.get("cached", False)
+            }
+        except ImportError:
+            logger.warning("discovery_v2_not_available_falling_back")
+    
+    # Fallback to v1
+    from src.pipeline.discovery import DiscoveryEngine
+    engine = DiscoveryEngine()
+    engine.discover_and_loop(entity_name, depth)
+    return {"status": "completed", "entity": entity_name}
+
+
+@celery_app.task(bind=True, base=BaseTask)
+def launch_discovery_v2_task(self, entity_name: str, depth: int = 0):
+    """
+    Launch the enhanced Discovery Engine v2 (with caching) in a background worker.
+    """
+    logger.info("celery_discovery_v2_started", entity=entity_name)
+    
+    from src.pipeline.discovery_v2 import DiscoveryEngineV2
+    engine = DiscoveryEngineV2(use_cache=True)
+    result = engine.discover_and_ingest(entity_name, depth)
+    
+    return {
+        "status": "completed", 
+        "entity": entity_name,
+        "urls_found": result.get("url_count", 0),
+        "cached": result.get("cached", False)
+    }

@@ -14,7 +14,15 @@ class ContentParser:
         Extract clean text from HTML.
         """
         try:
-            elements = partition_html(text=html_content)
+            # 1. BeautifulSoup Pre-cleaning (Strip structure)
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html_content, "html.parser")
+            for script in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                script.decompose()
+            cleaned_html = str(soup)
+
+            # 2. Unstructured Partitioning
+            elements = partition_html(text=cleaned_html)
             text = "\n\n".join([str(el) for el in elements])
             
             # Cleaning pipeline

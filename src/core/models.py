@@ -40,6 +40,8 @@ class Claim(BaseModel):
     object_id: str
     confidence_score: float = Field(description="Calculé via ConfidenceCalculator")
     evidence_snippet: str = Field(description="Extrait de texte prouvant le lien")
+    context: Optional[str] = Field(default=None, description="Détails (produits, montants...)")
+    date: Optional[str] = Field(default=None, description="Date de la relation ou UNKNOWN")
     extraction_model: str  # ex: "gpt-4o-2024-05-13"
     prompt_version: str    # ex: "v1.2"
     extracted_at: datetime = Field(default_factory=datetime.utcnow)

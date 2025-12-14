@@ -27,9 +27,10 @@ class Extractor:
         else:
             logger.warning("GEMINI_API_KEY not found. Extraction will fail unless in simulation mode.")
 
-    def extract(self, text: str, source_domain: str) -> Dict[str, List[Any]]:
+    def extract(self, text: str, source_domain: str, source_url: str = "") -> Dict[str, List[Any]]:
         """
         Extract entities and claims from text using Gemini.
+        source_url: The URL of the original document for traceability.
         """
         logger.info("extracting_knowledge", model=self.model_name, text_len=len(text))
         
@@ -43,24 +44,56 @@ class Extractor:
             system_instruction = ExtractionPrompts.SYSTEM_PROMPT
             user_prompt = ExtractionPrompts.get_extraction_prompt(text)
             
-            # Gemini call
-            # We use generation_config to enforce JSON response if possible, 
-            # or just prompt engineering. Gemini 1.5 supports response_mime_type="application/json"
+            # Gemini call with LOW temperature for factual extraction
+            # max_output_tokens prevents runaway 7000-line JSON responses
             response = self.model.generate_content(
-                f"{system_instruction}\n\n{user_prompt}"
+                f"{system_instruction}\n\n{user_prompt}",
+                generation_config={
+                    "temperature": 0.1, 
+                    "top_p": 0.9,
+                    "max_output_tokens": 4096  # ~3000 words max, forces concise output
+                }
             )
             
             # Nettoyage de la réponse brute de Gemini
             raw_text = response.text.strip()
             
             # Si Gemini a mis des balises Markdown ```json ... ```, on les enlève
+            # Clean raw text
+            raw_text = response.text.strip()
             if raw_text.startswith("```json"):
-                raw_text = raw_text.replace("```json", "").replace("```", "")
-            elif raw_text.startswith("```"):
-                raw_text = raw_text.replace("```", "")
+                raw_text = raw_text[7:]
+            if raw_text.startswith("```"):
+                raw_text = raw_text[3:]
+            if raw_text.endswith("```"):
+                raw_text = raw_text[:-3]
+            
+            raw_text = raw_text.strip()
                 
-            # Maintenant on peut charger le JSON propre
-            extracted_data = json.loads(raw_text)
+            # Attempt parsing
+            try:
+                extracted_data = json.loads(raw_text)
+            except json.JSONDecodeError:
+                # Fallback: Try ast.literal_eval for Python-style dicts (single quotes)
+                import ast
+                try:
+                    extracted_data = ast.literal_eval(raw_text)
+                    if not isinstance(extracted_data, dict):
+                         raise ValueError("Parsed content is not a dict")
+                    logger.info("json_parse_fallback_success", method="ast.literal_eval")
+                except Exception:
+                    # Last resort: Try to find JSON object via regex if surrounded by text
+                    import re
+                    match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+                    if match:
+                        try:
+                            extracted_data = json.loads(match.group(0))
+                        except:
+                            logger.error("extraction_json_error", raw_preview=raw_text[:500])
+                            raise
+                    else:
+                        logger.error("extraction_json_error", raw_preview=raw_text[:500])
+                        raise
             
             entities = []
             claims = []
@@ -77,6 +110,27 @@ class Extractor:
                 eid = f"{ename}:{etype}"
                 name_to_id[ename] = eid
                 
+                # VALIDATION: Blacklist Filter
+                IGNORE_TERMS = [
+                    # Navigation Web
+                    "portal", "login", "signup", "contact us", "privacy policy", "terms of use",
+                    "sitemap", "search", "menu", "skip to content", "advertisement",
+                    # Wiki-ismes
+                    "see also", "edit", "history", "external links", "references", 
+                    "bibliography", "citation needed", "stub", "category:",
+                    # Concepts génériques
+                    "new factory", "the company", "a supplier", "strategic partner",
+                    "annual report", "pdf document", "press release", "image", "chart", 
+                    "asic team", "document", "pdf", "jpg", "png"
+                ]
+
+                if len(ename) < 3 or ename.isdigit() or "%" in ename:
+                    continue
+                
+                if any(bad in ename.lower() for bad in IGNORE_TERMS):
+                    logger.info("entity_filtered_blacklist", name=ename)
+                    continue
+
                 entity = EntityNode(
                     id=eid, 
                     canonical_name=ename,
@@ -96,21 +150,27 @@ class Extractor:
                 
                 # Only keep claim if both endpoints are known entities
                 if subj_id and obj_id:
-                    # Calculate confidence
-                    score = ConfidenceCalculator.compute(
-                        source_domain=source_domain,
-                        method=self.model_name,
-                        corroboration_count=1
-                    )
+                    # Specific rules for confidence: use LLM score if available, else calc
+                    llm_conf = claim_data.get('confidence')
+                    if llm_conf is not None and isinstance(llm_conf, (int, float)):
+                        score = float(llm_conf)
+                    else:
+                        score = ConfidenceCalculator.compute(
+                            source_domain=source_domain,
+                            method=self.model_name,
+                            corroboration_count=1
+                        )
                     
                     claim = Claim(
-                        source_id=claim_data.get("source_id", "00000000-0000-0000-0000-000000000000"), # Placeholder
-                        source_url="http://placeholder.url", # Placeholder
+                        source_id=claim_data.get("source_id", "00000000-0000-0000-0000-000000000000"),
+                        source_url=source_url or source_domain,  # Use actual URL for traceability
                         subject_id=subj_id,
                         relation_type=claim_data.get('relation', 'RELATED_TO'),
                         object_id=obj_id,
                         confidence_score=score,
                         evidence_snippet=claim_data.get('evidence', ''),
+                        context=claim_data.get('context'),
+                        date=claim_data.get('date'),
                         extraction_model=self.model_name,
                         prompt_version=self.prompt_version
                     )

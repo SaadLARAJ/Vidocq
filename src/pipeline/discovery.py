@@ -23,53 +23,120 @@ class DiscoveryEngine:
 
     def __init__(self):
         self.ddgs = DDGS()
-        self.max_depth = 2  # Strict limit for demo/prototype
-        self.max_results = 2 # Keep it focused
+        self.max_depth = 2  # Limit depth to avoid Kevin Bacon effect (noise)
+        self.max_results = 5 # More results = richer graph
         self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
 
     def generate_multilingual_queries(self, entity_name: str) -> List[str]:
         """
-        Uses LLM to detect entity origin and generate localized search queries.
+        Uses LLM to profile target and generate investigation-specific search queries.
+        Autonomous investigation agent - adapts strategy based on target type.
         """
         try:
-            prompt = f"""
-            You are an expert OSINT investigator. 
-            For the entity '{entity_name}', generate 3 highly specific Google search queries to find its suppliers and supply chain documents.
-            
-            RULES:
-            1. Detect the probable nationality of the entity.
-            2. If the entity is Chinese, write queries in Simplified Chinese (e.g., '... 供应商名单').
-            3. If the entity is Russian, write queries in Russian (e.g., '... поставщики').
-            4. If the entity is French, write queries in French.
-            5. Otherwise, use English.
-            6. Target "Conflict Minerals Reports", "Supplier Lists", and "Tenders".
 
-            CRITICAL SEARCH RULES:
-            - DO NOT use "site:..." operator (unless excluding wikipedia).
-            - DO NOT use "filetype:pdf" systematically.
-            - Generate "Journalistic" queries to find articles, blogs, and news.
-            - Example: Instead of '{entity_name} site:example.com supplier list', generate '{entity_name} major suppliers list' or '{entity_name} supply chain scandal'.
-            
-            OUTPUT FORMAT:
-            Return ONLY a raw JSON list of strings. No markdown, no code blocks.
-            Example: ["query1", "query2", "query3"]
-            """
+            prompt = f"""You are an Elite OSINT Investigator. Your mission: Uncover hidden networks, beneficial owners, and suspicious connections for any target.
+
+TARGET: {entity_name}
+
+=== STEP 1: TARGET PROFILING ===
+Analyze the target and classify it:
+
+| Profile | Investigation Focus | Key Sources |
+|---------|---------------------|-------------|
+| CORPORATION | Supply chain, subsidiaries, beneficial owners, ESG violations | SEC, Companies House, OpenCorporates |
+| BANK/FINANCE | Offshore structures, UBO, money laundering cases, sanctions | ICIJ Leaks, FinCEN Files, Wolfsberg |
+| MEDIA/INFLUENCE | Funding sources, state ties, coordinated networks, propaganda | EU DisinfoLab, DFRLab, media ownership databases |
+| GOVERNMENT | Contracts, tenders, corruption cases, lobbying | Public procurement, FOIA, lobby registers |
+| OLIGARCH/PEP | Assets (yachts, jets, real estate), family network, sanctions | OCCRP Aleph, Navalny investigations, asset registries |
+| NGO/ACTIVIST | Funding, political ties, foreign agent status | NGO Monitor, donor databases, FARA filings |
+
+=== STEP 2: GENERATE 5 SEARCH QUERIES ===
+
+RULES:
+1. POLYGLOT: If Russian target → search in Russian. Chinese → Chinese. Adapt language.
+2. TARGET LEAKS & INVESTIGATIONS: Prioritize ICIJ, OCCRP, court records, investigative journalism.
+3. FIND THE DIRT: Use keywords like "scandal", "investigation", "lawsuit", "sanctions", "leak", "offshore", "shell company", "beneficial owner", "corruption".
+4. EXCLUDE NOISE: Add "-site:wikipedia.org -site:linkedin.com" to avoid generic pages.
+5. SEEK DOCUMENTS: Use "filetype:pdf", "court filing", "annual report", "UBO register".
+
+QUERY TYPES TO GENERATE:
+- Query 1: Local language + controversy keywords
+- Query 2: English + leak databases (ICIJ, OCCRP, Panama Papers)
+- Query 3: Ownership/UBO focused (beneficial owner, shareholder, subsidiary)
+- Query 4: Legal/Sanctions (lawsuit, sanctions, investigation, court)
+- Query 5: Document hunting (filetype:pdf, annual report, filing)
+
+=== OUTPUT FORMAT (JSON) ===
+{{
+  "profile": "Detected profile type",
+  "risk_indicators": ["List of red flags if any"],
+  "investigation_angle": "Primary investigation hypothesis",
+  "queries": [
+    "Query 1",
+    "Query 2", 
+    "Query 3",
+    "Query 4",
+    "Query 5"
+  ]
+}}
+
+Generate the investigation plan now."""
             
             response = self.model.generate_content(prompt)
             text = response.text.strip()
             
-            # Clean up potential markdown formatting
-            import re
-            match = re.search(r'\[.*\]', text, re.DOTALL)
-            if match:
-                json_str = match.group(0)
-                queries = json.loads(json_str)
-            else:
-                # Try direct load if regex fails (e.g. single line)
-                queries = json.loads(text)
+            # Robust Parsing Logic
+            # 1. Clean Markdown
+            if text.startswith("```json"): text = text[7:]
+            if text.startswith("```"): text = text[3:]
+            if text.endswith("```"): text = text[:-3]
+            text = text.strip()
+
+            parsed_data = {}
+            queries = []
             
-            # Log the detection (inferring from the first query characters or just generic log)
-            logger.info("generated_multilingual_queries", entity=entity_name, queries=queries)
+            import json
+            import ast
+            import re
+
+            # 2. Try Standard JSON
+            try:
+                parsed_data = json.loads(text)
+            except:
+                # 3. Try Python Eval (for single quotes)
+                try:
+                    parsed_data = ast.literal_eval(text)
+                    logger.info("llm_query_fallback_ast", method="ast.literal_eval")
+                except:
+                    # 4. Regex Fallback
+                    match = re.search(r'\{.*\}', text, re.DOTALL)
+                    if match:
+                        try:
+                            parsed_data = ast.literal_eval(match.group(0))
+                        except:
+                            parsed_data = {}
+            
+            # Extract queries from the new dict format
+            if isinstance(parsed_data, dict):
+                queries = parsed_data.get("queries", [])
+                profile = parsed_data.get("profile", "Unknown")
+                reasoning = parsed_data.get("reasoning", "None")
+                logger.info("dynamic_domain_analysis", entity=entity_name, profile=profile, reasoning=reasoning)
+            elif isinstance(parsed_data, list):
+                # Fallback if LLM ignores instructions and returns just a list
+                queries = parsed_data
+            
+            # 5. Validation
+            if not isinstance(queries, list):
+                logger.warning("llm_query_invalid_format", received=str(queries)[:100])
+                queries = []
+            
+            # 6. Ensure strings
+            queries = [str(q) for q in queries if isinstance(q, str)]
+
+            if not queries:
+                raise ValueError("No valid queries generated")
+            
             return queries
 
         except Exception as e:
@@ -77,8 +144,8 @@ class DiscoveryEngine:
             # Fallback to English - Broader queries
             return [
                 f"{entity_name} major suppliers list",
-                f"{entity_name} supply chain partners",
-                f"{entity_name} contracts and tenders"
+                f"{entity_name} subsidiaries list",
+                f"{entity_name} corruption scandal"
             ]
 
     def discover_and_loop(self, entity_name: str, current_depth: int = 0):
@@ -88,6 +155,19 @@ class DiscoveryEngine:
         if current_depth >= self.max_depth:
             logger.info("max_depth_reached", entity=entity_name, depth=current_depth)
             return
+
+        # FILTER: Ignore generic/noise entities
+        DENY_LIST = {
+            "PDF", "Word", "Excel", "Powerpoint", "Microsoft Office", "LibreOffice", "Google Docs", 
+            "Adobe Acrobat Reader", "Notepad++", "Windows", "Keep",
+            "Facebook", "Twitter", "Instagram", "WhatsApp", "YouTube", "LinkedIn", "Viadeo",
+            "Copains d'avant", "Journal des femmes", "Journal Du Net", "Linternaute", "CCM Benchmark",
+            "Login", "Subscribe", "Home", "Contact", "About Us", "Privacy Policy", "Cookie Policy"
+        }
+        
+        if entity_name in DENY_LIST or len(entity_name) < 3:
+             logger.info("discovery_skipped_denylist", entity=entity_name)
+             return
 
         logger.info("starting_discovery_hunt", entity=entity_name, depth=current_depth)
 
