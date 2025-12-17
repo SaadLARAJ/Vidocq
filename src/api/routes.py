@@ -2560,118 +2560,114 @@ async def generate_executive_brief(
 @router.get("/brain/full-analysis/{target}")
 async def full_intelligence_analysis(
     target: str = Path(..., description="Entity for complete analysis"),
-    max_urls: int = Query(default=20, description="Max URLs to process")
+    max_urls: int = Query(default=20, description="Max URLs to process"),
+    graph_store: GraphStore = Depends(get_graph_store)
 ):
     """
-    🚀 ULTIMATE ANALYSIS - Everything in One Call
+    🚀 ULTIMATE ANALYSIS v3.0 - Full Synergy Integration
     
-    Combines ALL advanced features:
-    1. Full Investigation Pipeline
-    2. Hidden Network Detection
-    3. Predictive Risk Scoring
-    4. Executive Brief Generation
+    Uses the MasterOrchestrator to ensure EVERY module enhances EVERY OTHER:
     
-    This is the most comprehensive analysis possible.
-    Use for high-stakes targets requiring complete intelligence.
+    SYNERGY FLOWS:
+    • Ontology types → PredictiveRisk (DEFENSE_CONTRACTOR = higher cyber risk)
+    • Coverage gaps → PredictiveRisk (missing data = uncertainty factor)
+    • Hidden networks → Brief (shell clusters included in report)
+    • Network patterns → PredictiveRisk (circular ownership = financial risk)
+    • All steps → Provenance (complete audit trail)
+    
+    12 PHASES:
+    1. Provenance Start
+    2. Classification (CoT)
+    3. Discovery + Coverage
+    4. Extraction + Language
+    5. Ontology Inference
+    6. Scoring + Contradiction
+    7. Bayesian Fusion
+    8. Hidden Networks (using ontology context)
+    9. Predictive Risk (using gaps + ontology + networks)
+    10. Temporal Versioning
+    11. Executive Brief (using ALL results)
+    12. Recommendation Merge
     """
-    from src.pipeline.unified_pipeline import investigate
-    from src.brain.hidden_network_detector import HiddenNetworkDetector
-    from src.brain.predictive_risk import PredictiveRiskScorer
-    from src.brain.brief_generator import BriefGenerator, ReportFormat
+    from src.pipeline.master_orchestrator import full_analysis
     
     try:
-        logger.info("full_intelligence_analysis", target=target)
+        logger.info("master_orchestrator_request", target=target)
         
-        # 1. Run unified pipeline
-        investigation = await investigate(target, max_urls=max_urls)
-        
-        # 2. Hidden network detection
-        detector = HiddenNetworkDetector(None)  # Will use mock for now
-        hidden_networks = await detector.analyze(target)
-        
-        # 3. Predictive risk
-        risk_scorer = PredictiveRiskScorer(None)
-        risk_predictions = await risk_scorer.predict(target)
-        
-        # 4. Generate brief
-        result_dict = {
-            "classification": investigation.target_classification,
-            "scoring": investigation.scoring_summary,
-            "discovery": {"urls_discovered": investigation.urls_discovered, "critical_gaps": investigation.critical_gaps},
-            "extraction": {"entities_extracted": investigation.entities_extracted, "claims_extracted": investigation.claims_extracted, "languages_detected": investigation.languages_detected},
-            "ontology": {"entity_types": investigation.entity_types_inferred, "high_risk_entities": investigation.high_risk_entities},
-            "contradiction": investigation.contradiction_report,
-            "bayesian_fusion": investigation.bayesian_summary,
-            "recommendations": investigation.recommendations
-        }
-        
-        generator = BriefGenerator()
-        brief = generator.generate(target, result_dict, ReportFormat.EXECUTIVE_BRIEF)
+        result = await full_analysis(target, max_urls=max_urls, graph_store=graph_store)
         
         return {
             "status": "complete",
-            "target": target,
-            "analysis_id": f"{target}-{datetime.now().strftime('%Y%m%d%H%M')}",
+            "version": "3.0-synergy",
+            "target": result.target,
+            "analysis_id": result.analysis_id,
+            "duration_seconds": result.duration_seconds,
             
-            # Summary
+            # TL;DR
             "tldr": {
-                "classification": investigation.target_classification.get("type"),
-                "risk_trajectory": risk_predictions.overall_risk_trajectory,
-                "hidden_patterns": hidden_networks.patterns_detected,
-                "key_finding": brief.key_finding
+                "type": result.classification.get("type"),
+                "risk_trajectory": result.risk_trajectory,
+                "hidden_patterns": result.hidden_networks.get("patterns", 0),
+                "key_finding": result.key_finding
             },
             
-            # Full Investigation
+            # Core Investigation
             "investigation": {
-                "urls_discovered": investigation.urls_discovered,
-                "entities_extracted": investigation.entities_extracted,
-                "claims_extracted": investigation.claims_extracted,
-                "confirmed_claims": investigation.confirmed_claims,
-                "contested_claims": investigation.contested_claims,
-                "languages": investigation.languages_detected,
-                "high_risk_entities": investigation.high_risk_entities,
-                "bayesian_summary": investigation.bayesian_summary,
-                "coverage_gaps": investigation.critical_gaps
+                "urls_discovered": result.urls_discovered,
+                "coverage_score": result.coverage_score,
+                "entities_extracted": result.entities_extracted,
+                "claims_extracted": result.claims_extracted,
+                "confirmed": result.scoring_summary.get("confirmed", 0),
+                "contested": result.scoring_summary.get("contested", 0),
+                "narrative_wars": result.narrative_wars,
+                "languages": result.languages_detected
             },
+            
+            # Ontology (feeds into risk)
+            "ontology": {
+                "entity_types": result.entity_types,
+                "high_risk_entities": result.high_risk_entities
+            },
+            
+            # Bayesian
+            "bayesian_fusion": result.bayesian_summary,
             
             # Hidden Networks
             "hidden_networks": {
-                "risk_level": hidden_networks.risk_level,
-                "risk_score": hidden_networks.risk_score,
-                "circular_ownership": hidden_networks.circular_ownership,
-                "shell_clusters": hidden_networks.shell_company_clusters,
-                "suspicious_patterns": len(hidden_networks.suspicious_patterns),
-                "recommendations": hidden_networks.recommendations
+                "risk_score": result.network_risk_score,
+                "circular_ownership": result.circular_ownership,
+                "shell_clusters": result.shell_clusters
             },
             
-            # Predictive Risks
+            # Predictive (enhanced by ontology + gaps + networks)
             "predicted_risks": {
-                "trajectory": risk_predictions.overall_risk_trajectory,
-                "current_score": risk_predictions.risk_score_current,
-                "predicted_score": risk_predictions.risk_score_predicted,
-                "top_risks": risk_predictions.top_risks,
-                "indicators_to_watch": risk_predictions.key_indicators_to_watch
+                "trajectory": result.risk_trajectory,
+                "top_risks": result.top_predicted_risks,
+                **result.predictive_risks
             },
             
             # Executive Brief
             "executive_brief": {
-                "summary": brief.executive_summary,
-                "key_findings": brief.key_findings,
-                "risk_matrix": brief.risk_matrix,
-                "immediate_actions": brief.immediate_actions
+                "summary": result.executive_summary,
+                "key_finding": result.key_finding,
+                "risk_matrix": result.risk_matrix,
+                "immediate_actions": result.immediate_actions
             },
             
-            # Full Markdown Report
-            "markdown_report": brief.markdown_report,
+            # Provenance
+            "provenance": {
+                "custody_id": result.custody_id,
+                "steps": result.provenance_steps
+            },
             
-            # Recommendations (combined)
-            "all_recommendations": list(set(
-                investigation.recommendations + 
-                hidden_networks.recommendations + 
-                brief.recommendations
-            ))
+            # Recommendations (merged from ALL modules)
+            "all_recommendations": result.all_recommendations,
+            
+            # Full Report
+            "markdown_report": result.markdown_report
         }
         
     except Exception as e:
-        logger.error("full_analysis_error", error=str(e))
+        logger.error("master_orchestrator_error", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
