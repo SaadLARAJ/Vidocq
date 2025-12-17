@@ -139,30 +139,75 @@ class VidocqBrain:
         if not self.model:
             return self._fallback_classification(user_input)
         
-        prompt = f"""Tu es un analyste de renseignement. Classifie cette cible.
+        prompt = f"""Tu es un analyste de renseignement expert. Classifie cette cible en utilisant un raisonnement structuré.
 
-CIBLE: "{user_input}"
+CIBLE À ANALYSER: "{user_input}"
 
-Réponds UNIQUEMENT en JSON valide:
+=== EXEMPLES ===
+
+EXEMPLE 1:
+CIBLE: "Thales Group"
+RAISONNEMENT:
+- Structure du nom: "Group" indique une entité corporative
+- Contexte: Thales est un conglomérat français de défense/aérospatiale
+- Pas de prénom → pas une personne
+- Pas un pays ou gouvernement
+CLASSIFICATION: COMPANY, confidence 0.95
+
+EXEMPLE 2:
+CIBLE: "Vladimir Putin"
+RAISONNEMENT:
+- Structure du nom: Prénom + Nom
+- Contexte: Personnalité politique russe
+- Pattern typique d'un nom de personne
+CLASSIFICATION: PERSON, confidence 0.98
+
+EXEMPLE 3:
+CIBLE: "Ministry of Defense of Russia"
+RAISONNEMENT:
+- "Ministry" indique une institution gouvernementale
+- Lié à un État (Russia)
+- Structure d'agence étatique
+CLASSIFICATION: STATE, confidence 0.95
+
+=== TON ANALYSE ===
+
+ÉTAPE 1 - ANALYSE DES INDICES:
+Examine le nom "{user_input}" et identifie:
+- Suffixes corporatifs? (SA, Corp, Ltd, GmbH, Group, Inc)
+- Pattern nom de personne? (Prénom + Nom, titre)
+- Institution étatique? (Ministry, Government, Republic, Kingdom)
+- Nom de pays? (France, China, Russia...)
+
+ÉTAPE 2 - CONTEXTE:
+- Secteur probable?
+- Pays d'origine probable?
+- Risques associés?
+
+ÉTAPE 3 - DÉCISION:
+Basé sur les indices, quelle classification est la plus probable?
+
+=== FORMAT DE RÉPONSE (JSON) ===
 {{
+    "reasoning": "Explication de ton raisonnement en 2-3 phrases",
     "target_type": "COMPANY" | "PERSON" | "STATE",
     "confidence": 0.0-1.0,
-    "indicators": ["liste des indices qui t'ont fait choisir"],
-    "probable_country": "pays d'origine probable ou null",
-    "probable_sector": "secteur d'activité ou null"
+    "indicators": ["liste des indices détectés"],
+    "probable_country": "pays ou null",
+    "probable_sector": "secteur ou null"
 }}
 
-RÈGLES DE CLASSIFICATION:
-- COMPANY: Suffixes (SA, Corp, Ltd, GmbH), noms de marques, entreprises
-- PERSON: Prénom + Nom, titres (CEO, Président, Oligarque)
-- STATE: Pays, Ministères, Gouvernements, Organisations internationales
+RÈGLES:
+- COMPANY: Entreprises, marques, conglomérats
+- PERSON: Individus (CEOs, politiciens, oligarques)
+- STATE: Pays, gouvernements, ministères, organisations internationales
 
-Sois précis. Un nom comme "Apple" = COMPANY. "Tim Cook" = PERSON. "China" = STATE."""
+Génère uniquement le JSON valide."""
 
         try:
             response = self.model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.1, "max_output_tokens": 500}
+                generation_config={"temperature": 0.1, "max_output_tokens": 800}
             )
             
             import json

@@ -1,10 +1,17 @@
 from pydantic import BaseModel, Field, HttpUrl
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Union
 from datetime import datetime
 from uuid import UUID, uuid4
 
 # Import the single source of truth for ontology
 from src.core.ontology import ALLOWED_ENTITY_TYPES, ALLOWED_RELATIONS
+
+# Create Literal type compatible with Python 3.10
+EntityTypeLiteral = Literal[
+    "PERSON", "ORGANIZATION", "COUNTRY", "CITY", "BANK", 
+    "SHELL_COMPANY", "CRYPTO_WALLET", "MEDIA_OUTLET", "GOVERNMENT",
+    "PRODUCT", "REGION", "EVENT", "UNKNOWN"
+]
 
 class SourceDocument(BaseModel):
     """Document source ingéré (Article, PDF, Tweet)."""
@@ -20,11 +27,12 @@ class EntityNode(BaseModel):
     """Entité unique dans le graphe."""
     id: str = Field(description="UUID déterministe basé sur canonical_name + type")
     canonical_name: str
-    # Use the imported list to define allowed types
-    entity_type: Literal[*ALLOWED_ENTITY_TYPES]
+    # Compatible Python 3.10
+    entity_type: EntityTypeLiteral
     aliases: List[str] = []
     first_seen: datetime = Field(default_factory=datetime.utcnow)
     vector_id: Optional[str] = Field(default=None, description="ID dans Qdrant")
+    visibility_status: Literal["CONFIRMED", "UNVERIFIED", "QUARANTINE", "NOISE"] = "UNVERIFIED"
 
 class Claim(BaseModel):
     """
@@ -45,6 +53,10 @@ class Claim(BaseModel):
     extraction_model: str  # ex: "gpt-4o-2024-05-13"
     prompt_version: str    # ex: "v1.2"
     extracted_at: datetime = Field(default_factory=datetime.utcnow)
+    visibility_status: Literal["CONFIRMED", "UNVERIFIED", "QUARANTINE", "NOISE"] = "UNVERIFIED"
+    # Fields for relevance filtering (set by soft-filter in tasks.py)
+    combined_relevance_score: Optional[float] = Field(default=None, description="Calculated by relevance filter")
+    relevance_reason: Optional[str] = Field(default=None, description="Explanation for relevance score")
 
 class AmbiguousMatch(BaseModel):
     """Cas d'Entity Resolution ambigu pour review HITL."""

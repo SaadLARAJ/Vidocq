@@ -1,6 +1,6 @@
 import os
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import google.generativeai as genai
 from src.core.logging import get_logger
 from src.core.models import Claim, EntityNode
@@ -14,6 +14,8 @@ from src.config import settings
 class Extractor:
     """
     Hybrid extraction engine using Google Gemini.
+    
+    v4.0: Now supports parent_context for focused extraction.
     """
     
     def __init__(self, model_name: str = "gemini-1.5-flash"):
@@ -27,12 +29,24 @@ class Extractor:
         else:
             logger.warning("GEMINI_API_KEY not found. Extraction will fail unless in simulation mode.")
 
-    def extract(self, text: str, source_domain: str, source_url: str = "") -> Dict[str, List[Any]]:
+    def extract(
+        self, 
+        text: str, 
+        source_domain: str, 
+        source_url: str = "",
+        parent_context: Optional[str] = None
+    ) -> Dict[str, List[Any]]:
         """
         Extract entities and claims from text using Gemini.
-        source_url: The URL of the original document for traceability.
+        
+        Args:
+            text: The document text to extract from.
+            source_domain: The domain of the source for credibility scoring.
+            source_url: The URL of the original document for traceability.
+            parent_context: The original investigation target (e.g., "RBE2 Radar").
+                           This focuses the LLM on relevant entities.
         """
-        logger.info("extracting_knowledge", model=self.model_name, text_len=len(text))
+        logger.info("extracting_knowledge", model=self.model_name, text_len=len(text), context=parent_context)
         
         if not self.api_key:
              # Fallback to simulation if no key provided (or raise error)
@@ -40,9 +54,9 @@ class Extractor:
              return self._simulate_inference(text, source_domain)
 
         try:
-            # Construct prompt
+            # Construct prompt with parent context
             system_instruction = ExtractionPrompts.SYSTEM_PROMPT
-            user_prompt = ExtractionPrompts.get_extraction_prompt(text)
+            user_prompt = ExtractionPrompts.get_extraction_prompt(text, parent_context=parent_context)
             
             # Gemini call with LOW temperature for factual extraction
             # max_output_tokens prevents runaway 7000-line JSON responses
@@ -60,40 +74,46 @@ class Extractor:
             
             # Si Gemini a mis des balises Markdown ```json ... ```, on les enlève
             # Clean raw text
-            raw_text = response.text.strip()
-            if raw_text.startswith("```json"):
-                raw_text = raw_text[7:]
-            if raw_text.startswith("```"):
-                raw_text = raw_text[3:]
-            if raw_text.endswith("```"):
-                raw_text = raw_text[:-3]
+            text = response.text.strip()
             
-            raw_text = raw_text.strip()
+            # Markdown code block cleanup
+            if "```" in text:
+                try:
+                    text = text.split("```json")[1].split("```")[0].strip()
+                except IndexError:
+                    try:
+                        text = text.split("```")[1].strip()
+                    except IndexError:
+                        pass # Keep original text if split fails
+
+            # Remove invalid escape sequences that confuse json.loads
+            # e.g. "C:\Path" -> "C:\\Path" or worse "\s" -> "\\s"
+            # This is a brute force fix for common LLM path/regex hallucinations
+            text = text.replace("\\s", "\\\\s").replace("\\_", "\\\\_")
                 
             # Attempt parsing
             try:
-                extracted_data = json.loads(raw_text)
+                extracted_data = json.loads(text)
             except json.JSONDecodeError:
-                # Fallback: Try ast.literal_eval for Python-style dicts (single quotes)
-                import ast
+                # Fallback 1: Dirty Regex extraction (Non-greedy)
+                import re
                 try:
-                    extracted_data = ast.literal_eval(raw_text)
-                    if not isinstance(extracted_data, dict):
-                         raise ValueError("Parsed content is not a dict")
-                    logger.info("json_parse_fallback_success", method="ast.literal_eval")
-                except Exception:
-                    # Last resort: Try to find JSON object via regex if surrounded by text
-                    import re
-                    match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+                    # Look for { ... } structure
+                    # Python re does not support recursion (?R), so we use a simple greedy match 
+                    # from first { to last }
+                    match = re.search(r'\{.*\}', text, re.DOTALL)
                     if match:
-                        try:
-                            extracted_data = json.loads(match.group(0))
-                        except:
-                            logger.error("extraction_json_error", raw_preview=raw_text[:500])
-                            raise
+                        json_cand = match.group(0)
+                        # Attempt to fix common errors like trailing commas
+                        json_cand = re.sub(r',\s*}', '}', json_cand)
+                        json_cand = re.sub(r',\s*]', ']', json_cand)
+                        extracted_data = json.loads(json_cand)
                     else:
-                        logger.error("extraction_json_error", raw_preview=raw_text[:500])
-                        raise
+                        raise ValueError("No JSON object found via regex")
+                except Exception as e:
+                    logger.error("extraction_json_hard_fail", error=str(e), raw_preview=text[:200])
+                    # Return empty structure instead of crashing
+                    extracted_data = {"entities": [], "claims": []}
             
             entities = []
             claims = []

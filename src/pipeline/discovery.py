@@ -31,56 +31,14 @@ class DiscoveryEngine:
         """
         Uses LLM to profile target and generate investigation-specific search queries.
         Autonomous investigation agent - adapts strategy based on target type.
+        
+        Now uses centralized prompts from prompts.py for consistency.
         """
         try:
-
-            prompt = f"""You are an Elite OSINT Investigator. Your mission: Uncover hidden networks, beneficial owners, and suspicious connections for any target.
-
-TARGET: {entity_name}
-
-=== STEP 1: TARGET PROFILING ===
-Analyze the target and classify it:
-
-| Profile | Investigation Focus | Key Sources |
-|---------|---------------------|-------------|
-| CORPORATION | Supply chain, subsidiaries, beneficial owners, ESG violations | SEC, Companies House, OpenCorporates |
-| BANK/FINANCE | Offshore structures, UBO, money laundering cases, sanctions | ICIJ Leaks, FinCEN Files, Wolfsberg |
-| MEDIA/INFLUENCE | Funding sources, state ties, coordinated networks, propaganda | EU DisinfoLab, DFRLab, media ownership databases |
-| GOVERNMENT | Contracts, tenders, corruption cases, lobbying | Public procurement, FOIA, lobby registers |
-| OLIGARCH/PEP | Assets (yachts, jets, real estate), family network, sanctions | OCCRP Aleph, Navalny investigations, asset registries |
-| NGO/ACTIVIST | Funding, political ties, foreign agent status | NGO Monitor, donor databases, FARA filings |
-
-=== STEP 2: GENERATE 5 SEARCH QUERIES ===
-
-RULES:
-1. POLYGLOT: If Russian target → search in Russian. Chinese → Chinese. Adapt language.
-2. TARGET LEAKS & INVESTIGATIONS: Prioritize ICIJ, OCCRP, court records, investigative journalism.
-3. FIND THE DIRT: Use keywords like "scandal", "investigation", "lawsuit", "sanctions", "leak", "offshore", "shell company", "beneficial owner", "corruption".
-4. EXCLUDE NOISE: Add "-site:wikipedia.org -site:linkedin.com" to avoid generic pages.
-5. SEEK DOCUMENTS: Use "filetype:pdf", "court filing", "annual report", "UBO register".
-
-QUERY TYPES TO GENERATE:
-- Query 1: Local language + controversy keywords
-- Query 2: English + leak databases (ICIJ, OCCRP, Panama Papers)
-- Query 3: Ownership/UBO focused (beneficial owner, shareholder, subsidiary)
-- Query 4: Legal/Sanctions (lawsuit, sanctions, investigation, court)
-- Query 5: Document hunting (filetype:pdf, annual report, filing)
-
-=== OUTPUT FORMAT (JSON) ===
-{{
-  "profile": "Detected profile type",
-  "risk_indicators": ["List of red flags if any"],
-  "investigation_angle": "Primary investigation hypothesis",
-  "queries": [
-    "Query 1",
-    "Query 2", 
-    "Query 3",
-    "Query 4",
-    "Query 5"
-  ]
-}}
-
-Generate the investigation plan now."""
+            from src.pipeline.prompts import ExtractionPrompts
+            
+            # Use centralized discovery prompt with few-shot examples
+            prompt = ExtractionPrompts.get_discovery_prompt(entity_name)
             
             response = self.model.generate_content(prompt)
             text = response.text.strip()
@@ -204,7 +162,7 @@ Generate the investigation plan now."""
             logger.info("triggering_ingestion", url=url, parent_entity=entity_name)
             
             # Trigger the ingestion task with incremented depth
-            ingest_url.delay(url, f"discovery_hunt_{entity_name}", depth=current_depth + 1)
+            ingest_url.delay(url, f"discovery_hunt_{entity_name}", depth=current_depth + 1, entity_name=entity_name)
 
 if __name__ == "__main__":
     import sys

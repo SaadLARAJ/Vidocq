@@ -15,16 +15,26 @@ def generate_uuid_from_string(val: str) -> str:
     return str(uuid.UUID(hex=hex_string))
 
 @shared_task(name="src.pipeline.tasks.extract_claims", bind=True, max_retries=3)
-def extract_claims(self, text: str, source_domain: str, source_id: str, source_url: str = "", depth: int = 0):
+def extract_claims(self, text: str, source_domain: str, source_id: str, source_url: str = "", depth: int = 0, parent_context: str = None):
     """
     Task to extract information from text using Gemini and save to storage.
+    
+    Args:
+        parent_context: The original search term to maintain context in recursive discovery.
+                       E.g., if searching for 'RBE2 Radar', child entities will be searched
+                       with context 'RBE2 Radar' to stay focused.
     """
     logger.info("starting_extraction", source_id=source_id, text_len=len(text), depth=depth)
     
     try:
-        # 1. Extract
+        # 1. Extract with parent context for focused extraction
         extractor = Extractor()
-        data = extractor.extract(text=text, source_domain=source_domain, source_url=source_url)
+        data = extractor.extract(
+            text=text, 
+            source_domain=source_domain, 
+            source_url=source_url,
+            parent_context=parent_context  # Now passed through!
+        )
         
         entities = data.get("entities", [])
         claims = data.get("claims", [])
@@ -36,92 +46,94 @@ def extract_claims(self, text: str, source_domain: str, source_id: str, source_u
         logger.info("verification_applied", **verification_summary)
         
         # ============================================
-        # 2.5 SOFT-FILTERING (CIA/OTAN Style Quarantine)
+        # 2.5 UNIFIED SCORING (CIA/OTAN Style Intelligence Grading)
+        # Multi-factor scoring: LLM confidence + Source trust + Relevance
         # "Raw Intelligence Never Dies" - We NEVER delete data
-        # Instead, we TAG it with visibility status
         # ============================================
         
-        # Apply visibility tagging based on confidence + relevance
         try:
+            from src.core.unified_scoring import UnifiedScorer, VisibilityZone
             from src.pipeline.relevance_filter import RelevanceFilter, MissionType
             import asyncio
             
+            scorer = UnifiedScorer()
             relevance_filter = RelevanceFilter(mission_type=MissionType.SUPPLY_CHAIN)
             
-            # Evaluate each claim and assign visibility status
             quarantine_count = 0
             visible_count = 0
             
             for claim in claims:
-                confidence = getattr(claim, 'confidence_score', 0.5)
+                llm_confidence = getattr(claim, 'confidence_score', 0.5)
+                is_tangential = getattr(claim, 'is_tangential', False)
                 
-                # Get relevance decision (but we don't delete based on it)
+                # Get relevance decision
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 decision = loop.run_until_complete(relevance_filter.evaluate(
-                    source_entity=getattr(claim, 'subject', ''),
-                    relation=getattr(claim, 'predicate', ''),
-                    target_entity=getattr(claim, 'object', ''),
-                    context=getattr(claim, 'source_text', ''),
-                    confidence=confidence
+                    source_entity=getattr(claim, 'subject_id', ''),
+                    relation=getattr(claim, 'relation_type', ''),
+                    target_entity=getattr(claim, 'object_id', ''),
+                    context=getattr(claim, 'evidence_snippet', ''),
+                    confidence=llm_confidence
                 ))
                 loop.close()
                 
-                # Combined score
-                combined_score = (confidence + decision.relevance_score) / 2
+                # Compute unified score using multi-factor system
+                breakdown = scorer.compute_score(
+                    llm_confidence=llm_confidence,
+                    source_url=source_url or source_domain,
+                    mission_relevance=decision.relevance_score,
+                    is_tangential=is_tangential,
+                    corroboration_count=1  # Will be updated when we find matching claims
+                )
                 
-                # === THE TAGGING STRATEGY (Never Delete) ===
-                # Zone Verte: Confirmé (score >= 0.8)
-                # Zone Orange: Non-vérifié (0.5 <= score < 0.8)  
-                # Zone Grise: Quarantaine (score < 0.5)
+                # Assign visibility zone
+                visibility = scorer.get_visibility_zone(breakdown.final_score)
+                claim.visibility_status = visibility.value
+                claim.unified_score = breakdown.final_score
+                claim.score_breakdown = {
+                    "llm": breakdown.llm_confidence,
+                    "source_trust": breakdown.source_trust,
+                    "relevance": breakdown.mission_relevance,
+                    "corroboration": breakdown.corroboration_bonus
+                }
                 
-                if combined_score >= 0.8:
-                    claim.visibility_status = "CONFIRMED"      # Zone Verte
-                    claim.visibility = "VISIBLE"
-                    visible_count += 1
-                elif combined_score >= 0.5:
-                    claim.visibility_status = "UNVERIFIED"     # Zone Orange
-                    claim.visibility = "VISIBLE"
-                    visible_count += 1
-                else:
-                    claim.visibility_status = "QUARANTINE"     # Zone Grise
-                    claim.visibility = "HIDDEN"
+                if visibility == VisibilityZone.GREY:
                     quarantine_count += 1
-                
-                # Store the score for later analysis
-                claim.combined_relevance_score = combined_score
-                claim.relevance_reason = decision.reason
+                else:
+                    visible_count += 1
             
-            # Same for entities
+            # Score entities
             for entity in entities:
                 confidence = getattr(entity, 'confidence_score', 0.7)
-                if confidence >= 0.7:
-                    entity.visibility_status = "CONFIRMED"
-                    entity.visibility = "VISIBLE"
-                elif confidence >= 0.4:
-                    entity.visibility_status = "UNVERIFIED"
-                    entity.visibility = "VISIBLE"
-                else:
-                    entity.visibility_status = "QUARANTINE"
-                    entity.visibility = "HIDDEN"
+                is_tangential = getattr(entity, 'is_tangential', False)
+                
+                breakdown = scorer.compute_score(
+                    llm_confidence=confidence,
+                    source_url=source_url or source_domain,
+                    mission_relevance=0.7 if not is_tangential else 0.3,
+                    is_tangential=is_tangential
+                )
+                
+                entity.visibility_status = scorer.get_visibility_zone(breakdown.final_score).value
+                entity.unified_score = breakdown.final_score
             
             logger.info(
-                "soft_filter_applied",
+                "unified_scoring_applied",
                 total_claims=len(claims),
                 visible=visible_count,
                 quarantined=quarantine_count,
+                scorer_version="UnifiedScorer v1.0",
                 note="NO DATA DELETED - All saved with visibility tags"
             )
             
         except Exception as filter_err:
-            logger.warning("soft_filter_skipped", error=str(filter_err))
-            # If filter fails, mark everything as VISIBLE (safe default)
+            logger.warning("unified_scoring_skipped", error=str(filter_err))
+            # If scoring fails, mark everything as UNVERIFIED (safe default)
             for claim in claims:
                 claim.visibility_status = "UNVERIFIED"
-                claim.visibility = "VISIBLE"
             for entity in entities:
                 entity.visibility_status = "UNVERIFIED"
-                entity.visibility = "VISIBLE"
         
         # 3. Save to Graph (Neo4j) - SAVE EVERYTHING (Quarantined + Visible)
         graph_store = GraphStore()
@@ -166,17 +178,41 @@ def extract_claims(self, text: str, source_domain: str, source_id: str, source_u
                  logger.error("vector_upsert_failed_dimension_mismatch_likely", error=str(e))
         
         # 4. Recursive Discovery Trigger
-        # Only trigger if we haven't reached max depth
+        # Only trigger if we haven't reached max depth AND entity is high-quality
         from src.pipeline.discovery import DiscoveryEngine
         discovery = DiscoveryEngine()
         
+        # NOISE ENTITY FILTER - Prevent garbage from spawning new searches
+        NOISE_ENTITY_KEYWORDS = {
+            "school", "university", "college", "class", "grade", "math", "science",
+            "secondary", "primary", "tutorial", "course", "homework", "quiz",
+            "triangle", "matrix", "vector", "theorem", "chapter", "exercise",
+            "user", "admin", "login", "password", "username", "profile",
+            "facebook", "twitter", "instagram", "youtube", "tiktok", "reddit",
+            "forum", "comment", "reply", "answer", "question", "brainly"
+        }
+        
         for entity in entities:
             if entity.entity_type == "ORGANIZATION":
-                logger.info("triggering_discovery_async", entity=entity.canonical_name, depth=depth)
+                # Check if entity name contains noise keywords
+                name_lower = entity.canonical_name.lower()
+                is_noise = any(noise in name_lower for noise in NOISE_ENTITY_KEYWORDS)
+                
+                if is_noise:
+                    logger.info("discovery_skipped_noise_entity", entity=entity.canonical_name, reason="noise_keywords")
+                    continue
+                    
+                # Check minimum confidence before triggering discovery
+                confidence = getattr(entity, 'confidence_score', 0.5)
+                if confidence < 0.4:
+                    logger.info("discovery_skipped_low_confidence", entity=entity.canonical_name, confidence=confidence)
+                    continue
+                
+                logger.info("triggering_discovery_async", entity=entity.canonical_name, depth=depth, context=parent_context)
                 # Async trigger to keep workers moving
                 # Avoid circular import at top level
                 from src.ingestion.tasks import launch_discovery_task
-                launch_discovery_task.delay(entity.canonical_name, depth=depth)
+                launch_discovery_task.delay(entity.canonical_name, depth=depth, parent_context=parent_context)
 
         return {"features_extracted": len(entities) + len(claims)}
 
@@ -186,3 +222,4 @@ def extract_claims(self, text: str, source_domain: str, source_id: str, source_u
         # We do NOT retry, so the worker can immediately pick up the next URL.
         logger.error("extraction_failed_skipping", error=str(e), source_id=source_id)
         return {"error": str(e), "status": "failed_fast"}
+

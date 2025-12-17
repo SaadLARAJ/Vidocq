@@ -139,6 +139,12 @@ class DiscoveryCache:
         except Exception as e:
             logger.warning("cache_store_entity_error", error=str(e))
     
+    # Alias for backward compatibility with discovery_v3.py
+    def store_entity_history(self, entity_name: str, data: Dict):
+        """Alias for store_entity_investigation."""
+        self.store_entity_investigation(entity_name, data)
+
+    
     # --- Statistics ---
     
     def get_stats(self) -> Dict:

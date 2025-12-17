@@ -12,12 +12,15 @@ import random
 import hashlib
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
+import threading
+from src.core.embedding import embed_text
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 # --- GEO MAPPING CONFIGURATION ---
 # 1. Static Cache (Fastest)
+geo_lock = threading.Lock()
 GEO_MAPPING = {
     "CHINA": {"lat": 35.8617, "lng": 104.1954},
     "INDIA": {"lat": 20.5937, "lng": 78.9629},
@@ -71,7 +74,8 @@ def get_coordinates(location_name: str) -> Dict[str, float]:
         if location:
             coords = {"lat": location.latitude, "lng": location.longitude}
             # Update cache for this session
-            GEO_MAPPING[clean_name] = coords
+            with geo_lock:
+                GEO_MAPPING[clean_name] = coords
             return coords
     except Exception as e:
         logger.warning("geocoding_failed", location=clean_name, error=str(e))
@@ -116,9 +120,8 @@ async def search_endpoint(
     """
     Semantic search for entities.
     """
-    # TODO: Generate embedding for query using OpenAI/Cohere
-    # vector = embed(request.query)
-    query_vector = [0.1] * 1536 
+    # Generate embedding for query
+    query_vector = embed_text(request.query) 
     
     results = vector_store.search_similar(query_vector, limit=request.limit)
     return {"results": results}
@@ -1670,6 +1673,197 @@ async def discover_and_ingest_v2(request: DiscoveryV2Request):
 
 
 # ============================================================================
+# DISCOVERY V3 ENDPOINTS (Multilingual Advanced Search)
+# ============================================================================
+
+class DiscoveryV3Request(BaseModel):
+    entity: str
+    use_cache: bool = True
+    max_depth: int = 2
+    aggressive: bool = True  # Use all languages and strategies
+    max_urls: int = 50
+    # Hybrid mode: provide a seed URL for controlled starting point
+    seed_url: Optional[str] = None  # If provided, ingest this first then discover on extracted entities
+
+
+@router.post("/discover/v3")
+async def discover_v3(request: DiscoveryV3Request):
+    """
+    Launch advanced multilingual discovery (v3).
+    
+    Features:
+    - Polyglot search (EN, FR, DE, ZH, RU, ES, AR)
+    - Smart entity context detection
+    - Multiple search strategies (suppliers, ownership, sanctions, leaks)
+    - Source quality scoring
+    - Noise domain filtering
+    """
+    logger.info("discovery_v3_request", entity=request.entity, aggressive=request.aggressive)
+    
+    try:
+        from src.pipeline.discovery_v3 import DiscoveryEngineV3
+        
+        engine = DiscoveryEngineV3(
+            use_cache=request.use_cache, 
+            aggressive=request.aggressive
+        )
+        result = engine.discover(
+            request.entity, 
+            depth=0, 
+            max_urls=request.max_urls
+        )
+        
+        return {
+            "status": "completed",
+            "entity": result.get("entity"),
+            "urls_found": len(result.get("urls", [])),
+            "high_value_sources": result.get("high_value_sources", 0),
+            "queries_executed": result.get("queries_executed", 0),
+            "context": result.get("context", {}),
+            "cached": result.get("cached", False),
+            "urls": result.get("urls", [])[:20]  # Return first 20 URLs
+        }
+        
+    except Exception as e:
+        logger.error("discovery_v3_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/discover/v3/ingest")
+async def discover_and_ingest_v3(request: DiscoveryV3Request):
+    """
+    Launch advanced multilingual discovery and trigger ingestion.
+    
+    MODES:
+    - Standard: Search for entity → Ingest discovered URLs
+    - Hybrid (seed_url provided): Ingest seed first → Extract entities → Discover on extracted entities
+    
+    The hybrid mode is more precise as YOU control the starting point.
+    """
+    logger.info("discovery_v3_ingest_request", entity=request.entity, seed_url=request.seed_url)
+    
+    try:
+        from src.pipeline.discovery_v3 import DiscoveryEngineV3
+        from src.ingestion.tasks import ingest_url
+        from urllib.parse import urlparse
+        
+        queued_count = 0
+        extracted_entities = []
+        seed_result = None
+        
+        # =====================================================================
+        # HYBRID MODE: If seed_url is provided, ingest it first
+        # =====================================================================
+        if request.seed_url:
+            logger.info("hybrid_mode_seed_ingestion", url=request.seed_url)
+            
+            # Ingest the seed URL synchronously to extract entities
+            try:
+                from src.ingestion.stealth import StealthSession
+                from src.ingestion.parser import ContentParser
+                from src.ingestion.chunking import SemanticChunker
+                from src.pipeline.extractor import extract_entities_and_claims
+                
+                # Fetch and parse seed
+                with StealthSession() as session:
+                    response = session.get(request.seed_url)
+                    html_content = response.text
+                
+                clean_text = ContentParser.parse_html(html_content)
+                
+                # Chunk the text
+                chunker = SemanticChunker()
+                chunks = chunker.chunk(clean_text)
+                
+                # Extract from first chunk (for speed)
+                if chunks:
+                    result = extract_entities_and_claims(
+                        chunks[0][:4000],  # Limit size
+                        source_domain=urlparse(request.seed_url).netloc,
+                        source_id="seed_extraction"
+                    )
+                    
+                    # Get high-quality entity names for discovery
+                    for entity in result.get("entities", []):
+                        if entity.entity_type == "ORGANIZATION":
+                            extracted_entities.append(entity.canonical_name)
+                    
+                    seed_result = {
+                        "url": request.seed_url,
+                        "entities_extracted": len(extracted_entities),
+                        "entity_names": extracted_entities[:10]  # Limit
+                    }
+                    
+                    logger.info("hybrid_seed_entities_extracted", 
+                               count=len(extracted_entities), 
+                               entities=extracted_entities[:5])
+                
+                # Queue the seed for full ingestion
+                domain = urlparse(request.seed_url).netloc
+                ingest_url.delay(request.seed_url, domain, depth=0, entity_name=request.entity)
+                queued_count += 1
+                
+            except Exception as e:
+                logger.warning("hybrid_seed_extraction_failed", error=str(e))
+                # Fall back to standard mode
+                extracted_entities = [request.entity]
+        
+        # =====================================================================
+        # DISCOVERY: Run V3 on entity (or extracted entities in hybrid mode)
+        # =====================================================================
+        engine = DiscoveryEngineV3(
+            use_cache=request.use_cache,
+            aggressive=request.aggressive
+        )
+        
+        # In hybrid mode, discover on extracted entities
+        targets = extracted_entities if extracted_entities else [request.entity]
+        all_urls = []
+        
+        for target in targets[:5]:  # Limit to 5 entities
+            result = engine.discover(
+                target, 
+                depth=0,
+                max_urls=request.max_urls // max(len(targets), 1)
+            )
+            all_urls.extend(result.get("urls", []))
+        
+        # Deduplicate URLs
+        unique_urls = list(set(all_urls))
+        
+        # Queue ingestion for discovered URLs
+        for url in unique_urls:
+            try:
+                domain = urlparse(url).netloc
+                ingest_url.delay(url, domain, depth=1, entity_name=target)
+                queued_count += 1
+            except Exception as e:
+                logger.warning("ingest_queue_error", url=url[:60], error=str(e))
+        
+        response = {
+            "status": "ingestion_triggered",
+            "mode": "hybrid" if request.seed_url else "standard",
+            "entity": request.entity,
+            "context_detected": result.get("context", {}),
+            "urls_discovered": len(unique_urls),
+            "urls_queued": queued_count,
+            "message": f"Discovery complete. {queued_count} URLs queued for ingestion."
+        }
+        
+        # Add hybrid mode details
+        if seed_result:
+            response["seed_result"] = seed_result
+            response["discovery_targets"] = extracted_entities[:5]
+        
+        return response
+        
+    except Exception as e:
+        logger.error("discovery_v3_ingest_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# ============================================================================
 # SYSTEM HEALTH ENDPOINTS
 # ============================================================================
 
@@ -2017,3 +2211,133 @@ async def trace_ownership_chain(
             "error": str(e),
             "note": "No ownership data found or graph query failed"
         }
+
+
+# ============================================================================
+# UNIFIED INTELLIGENCE PIPELINE v2.0 - ALL MODULES INTEGRATED
+# ============================================================================
+
+class UnifiedInvestigationRequest(BaseModel):
+    """Request for unified investigation pipeline"""
+    target: str
+    max_urls: int = 20
+    
+
+@router.post("/investigate/full")
+async def investigate_full_pipeline(request: UnifiedInvestigationRequest):
+    """
+    🚀 UNIFIED INTELLIGENCE PIPELINE v2.0
+    
+    The MOST COMPLETE investigation endpoint. Uses ALL AI modules:
+    
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  1. PROVENANCE      → Chain of custody (audit trail)           │
+    │  2. CLASSIFICATION  → VidocqBrain (CoT + few-shot)             │
+    │  3. DISCOVERY       → DiscoveryV3 + Coverage Analysis          │
+    │  4. INGESTION       → Fetch + Language Detection (LLM)         │
+    │  5. EXTRACTION      → Extractor (with parent_context)          │
+    │  6. ONTOLOGY        → Type inference + risk detection          │
+    │  7. SCORING         → UnifiedScorer + Contradiction            │
+    │  8. FUSION          → Bayesian multi-source fusion             │
+    │  9. VERSIONING      → Temporal fact versioning                 │
+    │ 10. STORAGE         → Neo4j + Qdrant                           │
+    └─────────────────────────────────────────────────────────────────┘
+    
+    Use this instead of /discover/v3/ingest for a complete analysis.
+    
+    Returns comprehensive results with:
+    - Bayesian probability for each claim
+    - Narrative war detection
+    - Coverage gap analysis
+    - Entity risk assessment via ontology
+    - Full audit trail (provenance)
+    """
+    logger.info("unified_pipeline_v2_request", target=request.target, max_urls=request.max_urls)
+    
+    try:
+        from src.pipeline.unified_pipeline import investigate
+        
+        result = await investigate(request.target, max_urls=request.max_urls)
+        
+        return {
+            "status": "complete",
+            "pipeline_version": "2.0",
+            "target": result.target,
+            "duration_seconds": (result.completed_at - result.started_at).total_seconds() if result.completed_at else None,
+            
+            # Classification
+            "classification": result.target_classification,
+            
+            # Discovery
+            "discovery": {
+                "urls_discovered": result.urls_discovered,
+                "coverage_score": result.coverage_analysis.get("score"),
+                "critical_gaps": result.critical_gaps
+            },
+            
+            # Extraction
+            "extraction": {
+                "entities_extracted": result.entities_extracted,
+                "claims_extracted": result.claims_extracted,
+                "languages_detected": result.languages_detected,
+                "parent_context": result.extraction_context
+            },
+            
+            # Ontology (NEW)
+            "ontology": {
+                "entity_types": result.entity_types_inferred,
+                "high_risk_entities": result.high_risk_entities
+            },
+            
+            # Scoring
+            "scoring": result.scoring_summary,
+            
+            # Contradiction (NEW)
+            "contradiction": {
+                "narrative_wars": result.contradiction_report.get("narrative_wars", 0),
+                "contested_topics": result.contested_topics,
+                "propaganda_indicators": result.contradiction_report.get("propaganda_indicators", [])
+            },
+            
+            # Bayesian Fusion (NEW)
+            "bayesian_fusion": result.bayesian_summary,
+            
+            # Temporal (NEW)
+            "temporal": {
+                "facts_versioned": result.facts_versioned
+            },
+            
+            # Provenance / Audit (NEW)
+            "provenance": {
+                "custody_id": result.custody_id,
+                "steps_count": len(result.provenance_export.get("audit_trail", [])),
+                "audit_trail": result.provenance_export.get("audit_trail", [])[:5]  # First 5 steps
+            },
+            
+            # Recommendations
+            "recommendations": result.recommendations,
+            
+            # Next steps
+            "next_steps": [
+                f"GET /graph/analyze to see the full knowledge graph",
+                f"GET /brain/report/{request.target} for geo-sourced report",
+                f"GET /graph/visible?show_all=true to see quarantined data"
+            ]
+        }
+        
+    except Exception as e:
+        logger.error("unified_pipeline_v2_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/investigate/full/{target}")
+async def investigate_full_get(
+    target: str = Path(..., description="Entity to investigate"),
+    max_urls: int = Query(default=20, ge=1, le=50, description="Max URLs to process")
+):
+    """
+    GET version of /investigate/full for easier testing.
+    Same as POST but via URL path.
+    """
+    request = UnifiedInvestigationRequest(target=target, max_urls=max_urls)
+    return await investigate_full_pipeline(request)

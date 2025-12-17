@@ -53,9 +53,12 @@ class BaseTask(Task):
     retry_backoff_max=60,
     max_retries=3
 )
-def ingest_url(self, url: str, source_domain: str, depth: int = 0):
+def ingest_url(self, url: str, source_domain: str, depth: int = 0, entity_name: str = None):
     """
-    Ingest a URL: Fetch -> Parse -> Chunk -> (Next: Extract).
+    Ingest a URL: Fetch -> Parse -> Check Relevance -> Chunk -> (Next: Extract).
+    
+    If entity_name is provided, the page content is checked for relevance.
+    Pages that don't mention the entity are skipped to avoid garbage processing.
     """
     logger.info("starting_ingestion", url=url)
     
@@ -74,7 +77,21 @@ def ingest_url(self, url: str, source_domain: str, depth: int = 0):
     # 2. Parse
     clean_text = ContentParser.parse_html(html_content)
     
-    # 3. Create SourceDocument model
+    # 3. RELEVANCE CHECK - Skip pages that don't mention the entity
+    if entity_name and clean_text:
+        # Split entity into keywords and check if ANY are present
+        keywords = [kw.lower().strip() for kw in entity_name.split() if len(kw) > 2]
+        text_lower = clean_text.lower()
+        
+        # Check if at least one significant keyword appears in the page
+        keyword_found = any(kw in text_lower for kw in keywords)
+        
+        if not keyword_found:
+            logger.info("page_skipped_not_relevant", url=url, entity=entity_name, 
+                       keywords=keywords[:5], text_preview=text_lower[:100])
+            return {"doc_id": None, "chunks": 0, "skipped": "not_relevant"}
+    
+    # 4. Create SourceDocument model
     doc = SourceDocument(
         url=url,
         raw_content=html_content,
@@ -83,56 +100,85 @@ def ingest_url(self, url: str, source_domain: str, depth: int = 0):
         reliability_score=settings.SOURCE_WEIGHTS.get(source_domain, 0.5)
     )
     
-    # 4. Chunk
+    # 5. Chunk
     chunker = SemanticChunker()
     chunks = chunker.chunk(clean_text)
     
     logger.info("ingestion_complete", url=url, chunks_count=len(chunks))
     
     # Trigger extraction task for each chunk
+    # Pass entity_name as parent_context so child discoveries stay focused
     from src.pipeline.tasks import extract_claims
     for chunk in chunks:
-        extract_claims.delay(text=chunk, source_domain=source_domain, source_id=str(doc.id), source_url=url, depth=depth)
+        extract_claims.delay(text=chunk, source_domain=source_domain, source_id=str(doc.id), source_url=url, depth=depth, parent_context=entity_name)
     
     return {"doc_id": str(doc.id), "chunks": len(chunks)}
 
 @celery_app.task(bind=True, base=BaseTask)
-def launch_discovery_task(self, entity_name: str, depth: int = 0, use_v2: bool = True):
+def launch_discovery_task(self, entity_name: str, depth: int = 0, use_v3: bool = True, parent_context: str = None):
     """
     Launch the Discovery Engine in a background worker.
     
     Args:
         entity_name: Entity to investigate
         depth: Current recursion depth
-        use_v2: Use enhanced v2 engine (with caching and parallel search)
+        use_v3: Use V3 engine (multilingual, context-aware) - DEFAULT
+        parent_context: Original search context to keep searches focused
+                       E.g., searching "Thales" with context "RBE2 Radar" → "Thales RBE2 Radar"
     """
-    logger.info("celery_discovery_started", entity=entity_name, v2=use_v2)
+    # Build contextual search term - combine entity with parent context if present
+    search_term = entity_name
+    if parent_context and parent_context.lower() not in entity_name.lower():
+        search_term = f"{entity_name} {parent_context}"
     
-    if use_v2:
+    logger.info("celery_discovery_started", entity=entity_name, v3=use_v3, search_term=search_term, context=parent_context)
+    
+    # V3 is the default - better context detection, multilingual, noise filtering
+    if use_v3:
         try:
-            from src.pipeline.discovery_v2 import DiscoveryEngineV2
-            engine = DiscoveryEngineV2(use_cache=True)
-            result = engine.discover_and_ingest(entity_name, depth)
+            from src.pipeline.discovery_v3 import DiscoveryEngineV3
+            from src.ingestion.tasks import ingest_url
+            
+            engine = DiscoveryEngineV3(use_cache=True, aggressive=True)
+            # Use contextual search term for discovery
+            result = engine.discover(search_term, depth=depth, max_urls=30)
+            
+            # Trigger ingestion for discovered URLs
+            # Use parent_context (or entity if no context) for relevance check
+            relevance_context = parent_context if parent_context else entity_name
+            urls = result.get("urls", [])
+            for url in urls:
+                ingest_url.delay(url, f"discovery_v3_{entity_name}", depth=depth + 1, entity_name=relevance_context)
+            
             return {
                 "status": "completed", 
                 "entity": entity_name,
-                "urls_found": result.get("url_count", 0),
+                "search_term": search_term,
+                "parent_context": parent_context,
+                "urls_found": len(urls),
+                "context": result.get("context", {}),
                 "cached": result.get("cached", False)
             }
-        except ImportError:
-            logger.warning("discovery_v2_not_available_falling_back")
+        except Exception as e:
+            logger.warning("discovery_v3_failed_fallback_v2", error=str(e))
     
-    # Fallback to v1
-    from src.pipeline.discovery import DiscoveryEngine
-    engine = DiscoveryEngine()
-    engine.discover_and_loop(entity_name, depth)
-    return {"status": "completed", "entity": entity_name}
+    # Fallback to V2
+    from src.pipeline.discovery_v2 import DiscoveryEngineV2
+    engine = DiscoveryEngineV2(use_cache=True)
+    result = engine.discover_and_ingest(entity_name, depth)
+    return {
+        "status": "completed", 
+        "entity": entity_name,
+        "urls_found": result.get("url_count", 0),
+        "cached": result.get("cached", False)
+    }
 
 
 @celery_app.task(bind=True, base=BaseTask)
 def launch_discovery_v2_task(self, entity_name: str, depth: int = 0):
     """
     Launch the enhanced Discovery Engine v2 (with caching) in a background worker.
+    Kept for backward compatibility.
     """
     logger.info("celery_discovery_v2_started", entity=entity_name)
     
@@ -146,3 +192,4 @@ def launch_discovery_v2_task(self, entity_name: str, depth: int = 0):
         "urls_found": result.get("url_count", 0),
         "cached": result.get("cached", False)
     }
+

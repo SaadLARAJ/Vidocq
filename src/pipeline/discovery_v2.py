@@ -30,6 +30,42 @@ class DiscoveryEngineV2:
         "Login", "Subscribe", "Home", "Contact", "About Us", "Privacy Policy",
         "Cookie Policy", "Terms of Service", "N/A", "Unknown", "TBD"
     }
+    
+    # Noise domains to filter out (shared with V3)
+    NOISE_DOMAINS = {
+        # Educational Q&A sites (major source of pollution)
+        "brainly.com", "brainly.in", "brainly.ph", "brainly.lat",
+        "chegg.com", "coursehero.com", "studymode.com", "studocu.com",
+        "numerade.com", "bartleby.com", "transtutors.com", "homeworklib.com",
+        "toppr.com", "byjus.com", "doubtnut.com", "vedantu.com",
+        # E-commerce (not intelligence sources)
+        "amazon.com", "amazon.fr", "amazon.de", "amazon.co.uk",
+        "ebay.com", "aliexpress.com", "alibaba.com", "wish.com",
+        # Login pages and auth
+        "login.", "signin.", "signup.", "auth.", "account.",
+        "myaccount.microsoft.com", "account.microsoft.com",
+        # Wikipedia (too generic)
+        "wikipedia.org", "wikidata.org", "wikimedia.org",
+        # Generic social/forum noise
+        "pinterest.com", "tumblr.com", "blogger.com",
+        # File sharing/hosting
+        "scribd.com", "slideshare.net", "docsity.com", "docplayer.net",
+        # Video/Media platforms (no extractable intelligence)
+        "youtube.com", "music.youtube.com", "youtu.be",
+        "vimeo.com", "dailymotion.com", "twitch.tv",
+        # App stores
+        "play.google.com", "apps.apple.com", "microsoft.com/store",
+        # School/Education portals
+        "monlycee.net", "pronote.net", "ecole-directe.fr",
+    }
+    
+    def _is_noise_url(self, url: str) -> bool:
+        """Check if URL is from a noise domain."""
+        url_lower = url.lower()
+        for domain in self.NOISE_DOMAINS:
+            if domain in url_lower:
+                return True
+        return False
 
     def __init__(self, use_cache: bool = True, max_workers: int = 3):
         self.max_depth = 3          # Increased for better coverage
@@ -248,15 +284,28 @@ Example: ["query1", "query2", "query3", "query4", "query5"]
         
         urls = result.get("urls", [])
         
-        # Trigger ingestion for each URL
+        # Trigger ingestion for each URL (with noise filtering)
         from src.ingestion.tasks import ingest_url
         
+        ingested_count = 0
+        skipped_count = 0
+        
         for url in urls:
+            # Skip noise domains
+            if self._is_noise_url(url):
+                logger.info("ingestion_skipped_noise_domain", url=url, entity=entity_name)
+                skipped_count += 1
+                continue
+                
             if self.cache:
                 self.cache.mark_url_processed(url, entity_name)
             
             logger.info("triggering_ingestion", url=url, entity=entity_name)
-            ingest_url.delay(url, f"discovery_{entity_name}", depth=depth + 1)
+            ingest_url.delay(url, f"discovery_{entity_name}", depth=depth + 1, entity_name=entity_name)
+            ingested_count += 1
+        
+        result["ingested"] = ingested_count
+        result["skipped_noise"] = skipped_count
         
         return result
 

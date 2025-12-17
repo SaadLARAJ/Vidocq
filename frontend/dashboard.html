@@ -365,6 +365,16 @@
             });
         });
 
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return text.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         async function checkApiStatus() {
             try {
                 const response = await fetch(`${API_BASE}/health/full`, { signal: AbortSignal.timeout(3000) });
@@ -400,13 +410,31 @@
             showLoading('INVESTIGATION: ' + query.toUpperCase());
 
             try {
-                // Step 1: Launch discovery (triggers OSINT search)
+                // Step 1: Launch discovery v3 (triggers OSINT search + Ingestion)
                 if (isApiOnline) {
-                    await fetch(`${API_BASE}/discover/v2`, {
+                    showLoading('RECHERCHE V3 (MULTILINGUE)...');
+                    const response = await fetch(`${API_BASE}/discover/v3/ingest`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ entity: query, use_cache: true })
+                        body: JSON.stringify({ 
+                            entity: query, 
+                            use_cache: true,
+                            aggressive: true, // Use all languages
+                            max_urls: 100 // Expert Mode: Maximize coverage
+                        })
                     });
+                    
+                    const data = await response.json();
+                    
+                    // Show immediate feedback about context detection
+                    if (data.context_detected && data.context_detected.industry) {
+                        showLoading(`CIBLE IDENTIFIEE: ${data.context_detected.industry} (${(data.context_detected.countries || []).join(', ')})`);
+                        await new Promise(r => setTimeout(r, 1500)); // Show message briefly
+                    }
+                    
+                    showLoading(`ANALYSE DE ${data.urls_queued || 0} SOURCES...`);
+                    // Give time for celery to process a bit (User Experience)
+                    await new Promise(r => setTimeout(r, 2000));
                 }
 
                 // Step 2: Fetch entities from Neo4j with confidence filter
@@ -453,20 +481,24 @@
             const container = document.getElementById('results-container');
             container.innerHTML = entities.map(e => {
                 const riskClass = e.risk_level === 'HIGH' ? 'critical' : (e.confidence < 50 ? 'warning' : '');
+                // Safe unique ID for data lookup instead of injection
+                const safeId = 'ent_' + Math.random().toString(36).substr(2, 9);
+                window[safeId] = e; // Store in global scope temporarily (or use a Map)
+                
                 return `
-                    <div class="entity-card ${riskClass}" data-entity='${JSON.stringify(e)}' onclick="showEntityDetail(this)">
+                    <div class="entity-card ${riskClass}" onclick="showEntityDetail(window['${safeId}'])">
                         <div class="entity-header">
                             <div>
-                                <div class="entity-name">${e.name}</div>
-                                <span class="entity-type">${e.type}</span>
+                                <div class="entity-name">${escapeHtml(e.name)}</div>
+                                <span class="entity-type">${escapeHtml(e.type)}</span>
                             </div>
                             <div class="confidence-badge ${getConfClass(e.confidence)}">${e.confidence}%</div>
                         </div>
                         <div class="entity-relations">
                             ${(e.relations || []).map(r => `
                                 <div class="relation-item">
-                                    <span class="relation-type">${r.type}</span>
-                                    <span>→ ${r.target}</span>
+                                    <span class="relation-type">${escapeHtml(r.type)}</span>
+                                    <span>→ ${escapeHtml(r.target)}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -494,9 +526,9 @@
         }
 
         // ========== ENTITY DETAIL (Connected to API) ==========
-        async function showEntityDetail(element) {
-            const entity = JSON.parse(element.dataset.entity);
-            document.getElementById('detail-name').textContent = entity.name;
+        async function showEntityDetail(entity) {
+            // entity is passed directly now, no need to parse dataset
+            document.getElementById('detail-name').textContent = entity.name; // textContent is safe
             document.getElementById('detail-type').textContent = entity.type;
             document.getElementById('detail-country').textContent = entity.country || '-';
 
@@ -520,9 +552,9 @@
             // Display relations
             const relHtml = (entity.relations || []).map(r => `
                 <div class="relation-item">
-                    <span class="relation-type">${r.type}</span>
-                    <span>→ ${r.target}</span>
-                    ${r.source_url ? `<a href="${r.source_url}" target="_blank" style="font-size:10px;color:var(--accent-primary);">📎</a>` : ''}
+                    <span class="relation-type">${escapeHtml(r.type)}</span>
+                    <span>→ ${escapeHtml(r.target)}</span>
+                    ${r.source_url ? `<a href="${escapeHtml(r.source_url)}" target="_blank" style="font-size:10px;color:var(--accent-primary);">📎</a>` : ''}
                 </div>
             `).join('') || '<p style="color:var(--text-muted);font-size:12px;">Aucune relation</p>';
             document.getElementById('relations-container').innerHTML = relHtml;
@@ -556,12 +588,12 @@
                     const data = await response.json();
                     if (data.entities && data.entities.length > 0) {
                         container.innerHTML = data.entities.map(e => `
-                            <div class="watchlist-item ${e.status === 'alert' ? 'alert' : ''}" onclick="selectWatchlistEntity('${e.entity_name}')">
+                            <div class="watchlist-item ${e.status === 'alert' ? 'alert' : ''}" onclick="selectWatchlistEntity('${escapeHtml(e.entity_name)}')">
                                 <div>
-                                    <div class="watchlist-name">${e.entity_name}</div>
-                                    <div class="watchlist-meta">${e.entity_type} • ${e.frequency}</div>
+                                    <div class="watchlist-name">${escapeHtml(e.entity_name)}</div>
+                                    <div class="watchlist-meta">${escapeHtml(e.entity_type)} • ${escapeHtml(e.frequency)}</div>
                                 </div>
-                                <span class="status-tag ${e.status === 'active' ? 'stable' : 'alert'}">${e.status}</span>
+                                <span class="status-tag ${e.status === 'active' ? 'stable' : 'alert'}">${escapeHtml(e.status)}</span>
                             </div>
                         `).join('');
                         return;
