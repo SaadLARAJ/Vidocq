@@ -2341,3 +2341,337 @@ async def investigate_full_get(
     """
     request = UnifiedInvestigationRequest(target=target, max_urls=max_urls)
     return await investigate_full_pipeline(request)
+
+
+# ============================================================================
+# ADVANCED INTELLIGENCE FEATURES
+# ============================================================================
+
+@router.get("/brain/hidden-networks/{target}")
+async def detect_hidden_networks(
+    target: str = Path(..., description="Entity to analyze for hidden patterns"),
+    graph_store: GraphStore = Depends(get_graph_store)
+):
+    """
+    🕸️ HIDDEN NETWORK DETECTOR
+    
+    Detects patterns humans would miss:
+    - Circular ownership (A → B → C → A) = money laundering indicator
+    - Shell company clusters = tax evasion indicator
+    - Unusual intermediaries = corruption indicator
+    - Suspiciously sparse profiles = synthetic identity risk
+    
+    Returns a comprehensive network analysis with risk score.
+    """
+    from src.brain.hidden_network_detector import HiddenNetworkDetector
+    
+    try:
+        detector = HiddenNetworkDetector(graph_store)
+        result = await detector.analyze(target)
+        
+        return {
+            "status": "success",
+            "target": target,
+            "risk_level": result.risk_level,
+            "risk_score": result.risk_score,
+            "patterns_detected": result.patterns_detected,
+            
+            "detections": {
+                "circular_ownership": result.circular_ownership,
+                "shell_clusters": result.shell_company_clusters,
+                "hidden_intermediaries": result.hidden_intermediaries
+            },
+            
+            "network_metrics": {
+                "centrality": result.centrality_score,
+                "clustering": result.cluster_coefficient
+            },
+            
+            "suspicious_patterns": [
+                {
+                    "type": p.pattern_type,
+                    "severity": p.severity,
+                    "confidence": p.confidence,
+                    "entities": p.entities_involved,
+                    "description": p.description,
+                    "hint": p.investigation_hint
+                }
+                for p in result.suspicious_patterns
+            ],
+            
+            "summary": result.summary,
+            "recommendations": result.recommendations
+        }
+        
+    except Exception as e:
+        logger.error("hidden_network_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/brain/predict-risks/{target}")
+async def predict_future_risks(
+    target: str = Path(..., description="Entity to predict risks for"),
+    graph_store: GraphStore = Depends(get_graph_store)
+):
+    """
+    🔮 PREDICTIVE RISK SCORING
+    
+    Predicts FUTURE risks before they materialize:
+    - Sanction likelihood
+    - Financial distress signals
+    - Geopolitical exposure
+    - Supply chain disruption probability
+    - Regulatory action risk
+    - Cyber attack risk
+    
+    Returns predictions with probability and time horizon.
+    """
+    from src.brain.predictive_risk import PredictiveRiskScorer
+    
+    try:
+        scorer = PredictiveRiskScorer(graph_store)
+        result = await scorer.predict(target)
+        
+        return {
+            "status": "success",
+            "target": target,
+            "risk_trajectory": result.overall_risk_trajectory,
+            "current_risk_score": result.risk_score_current,
+            "predicted_risk_score": result.risk_score_predicted,
+            
+            "predictions": [
+                {
+                    "risk_type": p.risk_type.value,
+                    "probability": f"{p.probability*100:.0f}%",
+                    "time_horizon": p.time_horizon.value,
+                    "description": p.description,
+                    "triggers": p.triggers,
+                    "early_warning_signs": p.early_warning_signs,
+                    "impact": p.impact_if_realized,
+                    "mitigations": p.mitigation_options,
+                    "confidence": p.confidence
+                }
+                for p in result.predicted_risks
+            ],
+            
+            "top_risks": result.top_risks,
+            "key_indicators_to_watch": result.key_indicators_to_watch,
+            "alert_triggers": result.recommended_alert_triggers,
+            
+            "summary": result.summary
+        }
+        
+    except Exception as e:
+        logger.error("predict_risks_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/brain/brief/{target}")
+async def generate_executive_brief(
+    target: str = Path(..., description="Entity for intelligence brief"),
+    max_urls: int = Query(default=15, description="Max URLs for investigation"),
+    format: str = Query(default="EXECUTIVE_BRIEF", description="Report format")
+):
+    """
+    📋 EXECUTIVE INTELLIGENCE BRIEF GENERATOR
+    
+    Auto-generates Palantir-style intelligence reports:
+    - Executive Summary (C-suite ready)
+    - Key Findings with confidence levels
+    - Risk Matrix
+    - Network Summary
+    - Actionable Recommendations
+    
+    Returns both structured data AND markdown report.
+    """
+    from src.pipeline.unified_pipeline import investigate
+    from src.brain.brief_generator import BriefGenerator, ReportFormat
+    
+    try:
+        # First, run investigation
+        investigation_result = await investigate(target, max_urls=max_urls)
+        
+        # Convert to dict for brief generation
+        result_dict = {
+            "classification": investigation_result.target_classification,
+            "scoring": investigation_result.scoring_summary,
+            "discovery": {
+                "urls_discovered": investigation_result.urls_discovered,
+                "coverage_score": investigation_result.coverage_analysis.get("score"),
+                "critical_gaps": investigation_result.critical_gaps
+            },
+            "extraction": {
+                "entities_extracted": investigation_result.entities_extracted,
+                "claims_extracted": investigation_result.claims_extracted,
+                "languages_detected": investigation_result.languages_detected
+            },
+            "ontology": {
+                "entity_types": investigation_result.entity_types_inferred,
+                "high_risk_entities": investigation_result.high_risk_entities
+            },
+            "contradiction": investigation_result.contradiction_report,
+            "bayesian_fusion": investigation_result.bayesian_summary,
+            "recommendations": investigation_result.recommendations,
+            "provenance": investigation_result.provenance_export
+        }
+        
+        # Parse format
+        try:
+            report_format = ReportFormat(format.upper())
+        except:
+            report_format = ReportFormat.EXECUTIVE_BRIEF
+        
+        # Generate brief
+        generator = BriefGenerator()
+        brief = generator.generate(target, result_dict, report_format)
+        
+        return {
+            "status": "success",
+            "target": target,
+            "format": report_format.value,
+            
+            "executive_summary": brief.executive_summary,
+            "key_finding": brief.key_finding,
+            
+            "assessment": {
+                "overall_confidence": f"{brief.overall_confidence*100:.0f}%",
+                "data_quality": brief.data_quality,
+                "sources_analyzed": brief.source_count
+            },
+            
+            "key_findings": brief.key_findings,
+            "risk_matrix": brief.risk_matrix,
+            "network_summary": brief.network_summary,
+            
+            "immediate_actions": brief.immediate_actions,
+            "recommendations": brief.recommendations,
+            
+            "modules_used": brief.modules_used,
+            
+            # Full markdown report for download/display
+            "markdown_report": brief.markdown_report
+        }
+        
+    except Exception as e:
+        logger.error("brief_generation_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/brain/full-analysis/{target}")
+async def full_intelligence_analysis(
+    target: str = Path(..., description="Entity for complete analysis"),
+    max_urls: int = Query(default=20, description="Max URLs to process")
+):
+    """
+    🚀 ULTIMATE ANALYSIS - Everything in One Call
+    
+    Combines ALL advanced features:
+    1. Full Investigation Pipeline
+    2. Hidden Network Detection
+    3. Predictive Risk Scoring
+    4. Executive Brief Generation
+    
+    This is the most comprehensive analysis possible.
+    Use for high-stakes targets requiring complete intelligence.
+    """
+    from src.pipeline.unified_pipeline import investigate
+    from src.brain.hidden_network_detector import HiddenNetworkDetector
+    from src.brain.predictive_risk import PredictiveRiskScorer
+    from src.brain.brief_generator import BriefGenerator, ReportFormat
+    
+    try:
+        logger.info("full_intelligence_analysis", target=target)
+        
+        # 1. Run unified pipeline
+        investigation = await investigate(target, max_urls=max_urls)
+        
+        # 2. Hidden network detection
+        detector = HiddenNetworkDetector(None)  # Will use mock for now
+        hidden_networks = await detector.analyze(target)
+        
+        # 3. Predictive risk
+        risk_scorer = PredictiveRiskScorer(None)
+        risk_predictions = await risk_scorer.predict(target)
+        
+        # 4. Generate brief
+        result_dict = {
+            "classification": investigation.target_classification,
+            "scoring": investigation.scoring_summary,
+            "discovery": {"urls_discovered": investigation.urls_discovered, "critical_gaps": investigation.critical_gaps},
+            "extraction": {"entities_extracted": investigation.entities_extracted, "claims_extracted": investigation.claims_extracted, "languages_detected": investigation.languages_detected},
+            "ontology": {"entity_types": investigation.entity_types_inferred, "high_risk_entities": investigation.high_risk_entities},
+            "contradiction": investigation.contradiction_report,
+            "bayesian_fusion": investigation.bayesian_summary,
+            "recommendations": investigation.recommendations
+        }
+        
+        generator = BriefGenerator()
+        brief = generator.generate(target, result_dict, ReportFormat.EXECUTIVE_BRIEF)
+        
+        return {
+            "status": "complete",
+            "target": target,
+            "analysis_id": f"{target}-{datetime.now().strftime('%Y%m%d%H%M')}",
+            
+            # Summary
+            "tldr": {
+                "classification": investigation.target_classification.get("type"),
+                "risk_trajectory": risk_predictions.overall_risk_trajectory,
+                "hidden_patterns": hidden_networks.patterns_detected,
+                "key_finding": brief.key_finding
+            },
+            
+            # Full Investigation
+            "investigation": {
+                "urls_discovered": investigation.urls_discovered,
+                "entities_extracted": investigation.entities_extracted,
+                "claims_extracted": investigation.claims_extracted,
+                "confirmed_claims": investigation.confirmed_claims,
+                "contested_claims": investigation.contested_claims,
+                "languages": investigation.languages_detected,
+                "high_risk_entities": investigation.high_risk_entities,
+                "bayesian_summary": investigation.bayesian_summary,
+                "coverage_gaps": investigation.critical_gaps
+            },
+            
+            # Hidden Networks
+            "hidden_networks": {
+                "risk_level": hidden_networks.risk_level,
+                "risk_score": hidden_networks.risk_score,
+                "circular_ownership": hidden_networks.circular_ownership,
+                "shell_clusters": hidden_networks.shell_company_clusters,
+                "suspicious_patterns": len(hidden_networks.suspicious_patterns),
+                "recommendations": hidden_networks.recommendations
+            },
+            
+            # Predictive Risks
+            "predicted_risks": {
+                "trajectory": risk_predictions.overall_risk_trajectory,
+                "current_score": risk_predictions.risk_score_current,
+                "predicted_score": risk_predictions.risk_score_predicted,
+                "top_risks": risk_predictions.top_risks,
+                "indicators_to_watch": risk_predictions.key_indicators_to_watch
+            },
+            
+            # Executive Brief
+            "executive_brief": {
+                "summary": brief.executive_summary,
+                "key_findings": brief.key_findings,
+                "risk_matrix": brief.risk_matrix,
+                "immediate_actions": brief.immediate_actions
+            },
+            
+            # Full Markdown Report
+            "markdown_report": brief.markdown_report,
+            
+            # Recommendations (combined)
+            "all_recommendations": list(set(
+                investigation.recommendations + 
+                hidden_networks.recommendations + 
+                brief.recommendations
+            ))
+        }
+        
+    except Exception as e:
+        logger.error("full_analysis_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
